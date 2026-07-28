@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force --skip-seed && npm run seed"
+    "db:reset": "prisma migrate reset --force --skip-seed && npm run seed",
+    "postinstall": "prisma generate",
+    "render-build": "prisma migrate deploy && npm run seed && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

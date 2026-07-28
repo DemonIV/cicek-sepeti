@@ -1,0 +1,40 @@
+# Render Blueprint — Çiçek Marketplace demo
+#
+# Render panelinde: New → Blueprint → bu repoyu seç. Ayarlar buradan okunur.
+#
+# Veritabanı hakkında: demo SQLite kullanıyor ve Render'ın diski geçicidir.
+# Veritabanı dosyası build sırasında oluşturulup seed ediliyor; servis her
+# yeniden başladığında bu ilk hâline döner. Yani sunum sırasında girilen
+# siparişler kalıcı değil — demo için kasıtlı bir tercih (her deploy tertemiz
+# ve öngörülebilir bir demo verisi verir). Kalıcılık gerekirse en altta not var.
+
+services:
+  - type: web
+    name: cicek-marketplace-demo
+    runtime: node
+    plan: free
+    region: frankfurt # Türkiye'ye en yakın Render bölgesi
+    branch: main
+
+    # NODE_ENV=production altında npm devDependencies'i atlar; ama build için
+    # typescript, tailwind, prisma CLI ve tsx gerekiyor — bu yüzden --include=dev.
+    buildCommand: npm ci --include=dev && npm run render-build
+    startCommand: npm run start
+    healthCheckPath: /
+
+    envVars:
+      - key: DATABASE_URL
+        value: file:./dev.db # prisma/schema.prisma'ya göre çözülür → prisma/dev.db
+      - key: NODE_VERSION
+        value: "22.13.0"
+
+# Siparişlerin yeniden başlatmalar arasında kalıcı olması istenirse:
+# ücretli bir plana (starter) geçip aşağıdaki bloğu servise ekleyin, sonra
+# DATABASE_URL'i file:/var/data/dev.db yapın. Bu durumda seed'i build'den
+# çıkarın (render-build → "prisma migrate deploy && next build"), yoksa her
+# deploy canlı veriyi siler.
+#
+#    disk:
+#      name: data
+#      mountPath: /var/data
+#      sizeGB: 1

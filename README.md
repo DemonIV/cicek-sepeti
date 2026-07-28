@@ -38,6 +38,36 @@ yani ilk açılışta internet bağlantısı gerekir. Bağlantı yoksa uygulama 
 
 ---
 
+## Yayına alma (Render)
+
+Depoda hazır bir `render.yaml` var. Render panelinde **New → Blueprint** → bu
+repo seçilir; build/start komutları ve ortam değişkenleri oradan okunur. Elle
+kurmak isteyen için karşılığı:
+
+| Ayar | Değer |
+| --- | --- |
+| Runtime | Node |
+| Build command | `npm ci --include=dev && npm run render-build` |
+| Start command | `npm run start` |
+| Ortam değişkeni | `DATABASE_URL=file:./dev.db` |
+
+Bilinmesi gereken üç şey:
+
+- **Veri kalıcı değil.** SQLite dosyası build sırasında oluşturulup seed edilir,
+  Render'ın diski ise geçicidir. Servis her yeniden başladığında veri seed
+  hâline döner — sunumda girilen sipariş kalmaz. Demo için bilinçli tercih:
+  her deploy tertemiz ve öngörülebilir bir demo verisi verir. Kalıcılık
+  gerekirse `render.yaml` sonundaki disk notunu izleyin (ücretli plan gerekir).
+- **Seed verisi deploy tarihine göre üretilir.** Admin panelindeki "son 7 gün"
+  grafiği build anına göre doludur; aradan haftalar geçerse boşalır. Sunumdan
+  önce Render'da **Manual Deploy** ile yeniden deploy edin, veri tazelenir.
+- **Ücretsiz plan 15 dakika hareketsizlikten sonra uykuya geçer** ve uyanması
+  ~1 dakika sürer. Müşteri sunumunda bu risk alınmamalı: `render.yaml` içinde
+  `plan: free` → `plan: starter` yapın, ya da sunumdan hemen önce siteyi bir
+  kez açıp uyandırın.
+
+---
+
 ## Demo hesapları ve rol değiştirme
 
 Giriş ekranı **yoktur**. Sağ üstteki **rol değiştirici** ile hesaplar arasında
