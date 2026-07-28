@@ -1,0 +1,600 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   Tasarım tokenları — "Vitrin"
+   -----------------------------------------------------------------------------
+   Kimlik çiçekçinin vitrininden alındı: pudra pembesi ambalaj kağıdı (paper),
+   koyu patlıcan moru sargı (plum) ve doygun bir ahududu aksanı (bloom).
+   Kadife sarısı (gold) yalnızca kıtlık ve puan için, yeşil (fern) yalnızca
+   olumlu durum için kullanılır — ikisi de süs değil, işaret taşır.
+
+   İmza form: KEMER. Vitrin camının ve buketin silueti. Yalnızca editoryal
+   yüzeylerde görünür — ana sayfa vitrini, kategori karoları, marka işareti.
+   ÜRÜN fotoğrafları tam karedir (kart, detay, sepet, panel); böylece katalog
+   sık kurulur ve tanıdık bir e-ticaret ızgarası gibi okunur.
+   ========================================================================== */
+
+@theme {
+  /* Tipografi */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-bodoni), "Didot", "Bodoni MT", Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+
+  /* Patlıcan — yapı, panel, metin */
+  --color-plum-50: #f9eff3;
+  --color-plum-100: #f0dde5;
+  --color-plum-200: #e0bfcd;
+  --color-plum-300: #c697ad;
+  --color-plum-400: #a56b88;
+  --color-plum-500: #834a68;
+  --color-plum-600: #6a3752;
+  --color-plum-700: #542a41;
+  --color-plum-800: #3f1e31;
+  --color-plum-900: #2c1322;
+  --color-plum-950: #1b0a15;
+
+  /* Ahududu — aksiyon, fiyat, vurgu */
+  --color-bloom-50: #fff0f3;
+  --color-bloom-100: #ffdde4;
+  --color-bloom-200: #ffbccb;
+  --color-bloom-300: #fb8da7;
+  --color-bloom-400: #f2547f;
+  --color-bloom-500: #de2a5e;
+  --color-bloom-600: #c2154b;
+  --color-bloom-700: #a20f3e;
+  --color-bloom-800: #850d34;
+  --color-bloom-900: #6b0c2b;
+
+  /* Kadife sarısı — yalnızca kıtlık ve puan */
+  --color-gold-100: #fbecd2;
+  --color-gold-300: #eec87f;
+  --color-gold-500: #cf9128;
+  --color-gold-700: #94640f;
+
+  /* Yaprak — yalnızca olumlu durum */
+  --color-fern-100: #dcece0;
+  --color-fern-300: #93bfa1;
+  --color-fern-500: #3f6b4e;
+  --color-fern-700: #2b4c37;
+
+  /* Nötrler */
+  --color-paper: #fbf0ec;
+  --color-surface: #ffffff;
+  --color-ink: #1b0a15;
+  --color-muted: #7a5c69;
+  --color-faint: #a68f99;
+  --color-line: #ecdcd8;
+  --color-line-strong: #dbc2bd;
+
+  /* Yuvarlaklık — arayüz dik, yalnızca kemer yumuşak */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+
+  /* Kemerin kubbe yüksekliği */
+  --arch-top: 7rem;
+
+  /* Gölge — mor tabanlı, nötr gri değil */
+  --shadow-card: 0 1px 2px rgba(27, 10, 21, 0.05), 0 1px 1px rgba(27, 10, 21, 0.03);
+  --shadow-lift: 0 14px 32px -14px rgba(27, 10, 21, 0.28), 0 2px 6px rgba(27, 10, 21, 0.06);
+  --shadow-note: 0 10px 24px -14px rgba(107, 12, 43, 0.42);
+  --shadow-panel: 0 1px 0 rgba(27, 10, 21, 0.06);
+  --shadow-arch: 0 30px 60px -30px rgba(27, 10, 21, 0.45);
+}
+
+/* =============================================================================
+   Temel
+   ========================================================================== */
+
+/* Kemerin kubbesi dar ekranda orantısız kalıyor: küçük kartta 7rem yarıçap
+   ürünün yarısını yiyor. Telefonda daha alçak bir kubbe. */
+@media (max-width: 640px) {
+  :root {
+    --arch-top: 3.75rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Bodoni yüksek kontrastlı: iri boyda sıkı kurulur, ince ağırlıkta durur. */
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--color-plum-950);
+  }
+
+  table, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-bloom-600);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-bloom-200);
+    color: var(--color-plum-950);
+  }
+}
+
+/* =============================================================================
+   Bileşen sınıfları — müşteri tarafı ve paneller aynı sistemi kullanır
+   ========================================================================== */
+
+@layer components {
+  /* ------------------------------- Butonlar ------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.6875rem 1.125rem;
+    white-space: nowrap;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease,
+      transform 140ms ease, box-shadow 140ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .btn-primary {
+    background: var(--color-bloom-600);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: var(--color-bloom-700);
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
+  }
+
+  .btn-dark {
+    background: var(--color-plum-900);
+    color: var(--color-plum-50);
+  }
+  .btn-dark:hover {
+    background: var(--color-plum-800);
+  }
+
+  .btn-outline {
+    background: var(--color-surface);
+    border-color: var(--color-line-strong);
+    color: var(--color-plum-900);
+  }
+  .btn-outline:hover {
+    border-color: var(--color-plum-400);
+    background: var(--color-plum-50);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-plum-800);
+  }
+  .btn-ghost:hover {
+    background: var(--color-plum-50);
+  }
+
+  .btn-danger {
+    background: var(--color-surface);
+    border-color: #e8c6c4;
+    color: #9c2f2a;
+  }
+  .btn-danger:hover {
+    background: #fdf3f2;
+    border-color: #dcaba8;
+  }
+
+  .btn-sm {
+    padding: 0.4375rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-lg {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .btn-block {
+    width: 100%;
+  }
+
+  /* ------------------------------ Form alanları ---------------------------- */
+
+  .field {
+    display: block;
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-md);
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--color-faint);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--color-plum-500);
+    box-shadow: 0 0 0 3px rgba(131, 74, 104, 0.15);
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  select.field {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%237a5c69' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2rem;
+  }
+
+  /* --------------------------------- Kart --------------------------------- */
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-pad {
+    padding: 1.25rem;
+  }
+
+  /* ------------------------------ İmza: kemer ------------------------------ */
+  /* Vitrin camının silueti. Ürün ızgarası kare olduğundan kemer artık yalnızca
+     editoryal yüzeylerde durur (hero vitrini, kategori karosu, marka işareti);
+     seyrek olduğu için marka gibi okunur. */
+
+  .arch {
+    border-radius: var(--arch-top) var(--arch-top) var(--radius-sm) var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .arch-full {
+    border-radius: 999px 999px var(--radius-sm) var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .arch-sm {
+    border-radius: 1.75rem 1.75rem var(--radius-sm) var(--radius-sm);
+    overflow: hidden;
+  }
+
+  /* -------------------------------- Rozetler ------------------------------- */
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: var(--tone-bg);
+    color: var(--tone-fg);
+    border: 1px solid var(--tone-border);
+  }
+
+  .badge-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+    flex: none;
+  }
+
+  .tone-leaf   { --tone-bg: #dcece0; --tone-fg: #2b4c37; --tone-border: #bcd9c4; }
+  .tone-bloom  { --tone-bg: #ffdde4; --tone-fg: #a20f3e; --tone-border: #ffbccb; }
+  .tone-amber  { --tone-bg: #fbecd2; --tone-fg: #94640f; --tone-border: #eed9ae; }
+  .tone-teal   { --tone-bg: #d9ebef; --tone-fg: #1c545e; --tone-border: #b6d9e0; }
+  .tone-violet { --tone-bg: #e9e0f2; --tone-fg: #533a7d; --tone-border: #d6c8e8; }
+  .tone-neutral{ --tone-bg: #efe4e6; --tone-fg: #5b4750; --tone-border: #ded0d3; }
+  .tone-danger { --tone-bg: #fbe0dd; --tone-fg: #9c2f2a; --tone-border: #f2c6c2; }
+
+  /* ------------------------------ Veri tablosu ----------------------------- */
+
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+  }
+
+  .data-table thead th {
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    padding: 0.625rem 1rem;
+    background: var(--color-plum-50);
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+  }
+
+  .data-table tbody td {
+    padding: 0.8125rem 1rem;
+    border-bottom: 1px solid var(--color-line);
+    vertical-align: middle;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table tbody tr:hover {
+    background: #fdf8f8;
+  }
+
+  /* ------------------------- İmza öğesi: hediye notu ------------------------ */
+  /* Aynı kart müşteri checkout'unda, satıcı sipariş detayında, kurye ekranında
+     ve sipariş takibinde tekrar eder — dört rolü birbirine bağlayan nesne.   */
+
+  .gift-note {
+    position: relative;
+    background: linear-gradient(180deg, #fffafb 0%, var(--color-bloom-50) 100%);
+    border: 1px solid var(--color-bloom-200);
+    border-radius: var(--radius-sm);
+    padding: 1.125rem 1.25rem 1.25rem;
+    box-shadow: var(--shadow-note);
+    transform: rotate(-1.1deg);
+  }
+
+  .gift-note::before {
+    content: "";
+    position: absolute;
+    inset: 0.3125rem;
+    border: 1px dashed var(--color-bloom-200);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .gift-note-label {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-bloom-600);
+  }
+
+  .gift-note-body {
+    position: relative;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: var(--color-plum-950);
+    margin-top: 0.5rem;
+  }
+
+  .gift-note-textarea {
+    position: relative;
+    width: 100%;
+    background: transparent;
+    border: none;
+    resize: none;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: var(--color-plum-950);
+    margin-top: 0.5rem;
+  }
+
+  .gift-note-textarea:focus {
+    outline: none;
+  }
+
+  .gift-note-textarea::placeholder {
+    color: var(--color-bloom-300);
+  }
+
+  /* --------------------------------- Diğer -------------------------------- */
+
+  /* Bölüm başlığı — vitrin tarafındaki TEK ölçek.
+     Önceden üç ayrı biçim vardı (ana sayfa clamp, ürün detay 24px, kategori
+     18px). Bodoni yüksek kontrastlı bir didone: 18px'te tırnakları dağılıyor,
+     o yüzden alt sınır 21px. Panel kartlarının 15px'lik başlıkları bu ölçeğe
+     dahil değil — orası yoğun arayüz, gövde yüzünde kalır. */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.6vw, 1.75rem);
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-plum-950);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Ortalanmış bölüm başlığı: iki yanında ince çizgi, vitrin tabelası gibi */
+  .rule-head {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .rule-head::before,
+  .rule-head::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-line-strong);
+  }
+
+  .link-underline {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--color-line-strong);
+    transition: text-decoration-color 140ms ease;
+  }
+  .link-underline:hover {
+    text-decoration-color: var(--color-bloom-600);
+  }
+
+  /* Yatay kaydırma şeridi — kategori/satıcı listeleri */
+  .scroll-row {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-row::-webkit-scrollbar {
+    display: none;
+  }
+  .scroll-row > * {
+    scroll-snap-align: start;
+    flex: none;
+  }
+
+  /* ------------------------------- İskelet -------------------------------- */
+  /* Sayfa sunucudan gelene kadar boş ekran değil, gelecek düzenin taslağı
+     görünür. Parıltı tek yönlü ve yavaş; dikkat çekmek değil "çalışıyor"
+     demek için var. */
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-plum-50);
+    border-radius: var(--radius-md);
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.72),
+      transparent
+    );
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Kutulu kart yükselmesi — ürün kartları, mağaza kartları, panel kartları */
+  .product-card {
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+  .product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--color-line-strong);
+  }
+}
+
+/* =============================================================================
+   Hareket — açılışta tek bir kademeli giriş, başka süs yok
+   ========================================================================== */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Kemerler yerine oturur gibi açılır: aşağıdan, hafif ölçekle. */
+@keyframes arch-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-arch {
+  animation: arch-in 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .product-card:hover {
+    transform: none;
+  }
+}

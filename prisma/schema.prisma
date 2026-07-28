@@ -1,0 +1,188 @@
+// Çiçek Marketplace — demo şeması
+//
+// Not: SQLite, Prisma `enum` tipini desteklemez. Bu yüzden rol / durum alanları
+// String olarak tutulur; izin verilen değerler ve tüm geçiş mantığı
+// `src/lib/enums.ts` ve `src/lib/order-status.ts` içinde tek yerde tanımlıdır.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      String // CUSTOMER | SELLER | COURIER | ADMIN
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  seller     Seller?
+  addresses  Address[]
+  orders     Order[]    @relation("CustomerOrders")
+  deliveries Delivery[] @relation("CourierDeliveries")
+
+  @@index([role])
+}
+
+model Address {
+  id          String  @id @default(cuid())
+  userId      String
+  title       String // "Ev", "Ofis"
+  city        String
+  district    String
+  fullAddress String
+  isDefault   Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Seller {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  storeName      String
+  slug           String   @unique
+  city           String
+  district       String?
+  phone          String?
+  about          String?
+  coverUrl       String?
+  status         String // PENDING | APPROVED | REJECTED
+  commissionRate Float    @default(0.12) // 0.12 = %12
+  rating         Float    @default(4.7)
+  appliedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products Product[]
+  items    OrderItem[]
+
+  @@index([status])
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique
+  imageUrl  String?
+  sortOrder Int     @default(0)
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sellerId    String
+  categoryId  String
+  name        String
+  slug        String   @unique
+  description String
+  price       Float
+  stock       Int      @default(0)
+  imageUrl    String
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  rating      Float    @default(4.8)
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  seller   Seller      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category Category    @relation(fields: [categoryId], references: [id])
+  items    OrderItem[]
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  orderNo    String   @unique
+  customerId String
+  status     String // BEKLEMEDE | ONAYLANDI | HAZIRLANIYOR | YOLDA | TESLIM_EDILDI | IPTAL
+  subtotal   Float
+  shippingFee Float   @default(0)
+  total      Float
+
+  recipientName  String
+  recipientPhone String
+  deliveryCity   String
+  deliveryAddress String
+  giftNote       String?
+  deliveryDate   DateTime
+  deliverySlot   String // "09:00 - 12:00"
+
+  paymentMethod String   @default("KART")
+  paymentStatus String   @default("BEKLIYOR") // BEKLIYOR | ODENDI | BASARISIZ
+  cancelReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  items    OrderItem[]
+  delivery Delivery?
+  events   OrderEvent[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id             String @id @default(cuid())
+  orderId        String
+  productId      String
+  sellerId       String
+  productName    String // sipariş anındaki ad (ürün sonradan değişse de bozulmasın)
+  productImage   String
+  quantity       Int
+  unitPrice      Float
+  commissionRate Float // sipariş anındaki komisyon oranı — sonradan değişse geçmiş bozulmaz
+  status         String // kalem bazlı durum; sipariş durumu bunlardan türetilir
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  seller  Seller  @relation(fields: [sellerId], references: [id])
+
+  @@index([orderId])
+  @@index([sellerId])
+}
+
+model Delivery {
+  id         String    @id @default(cuid())
+  orderId    String    @unique
+  courierId  String?
+  status     String // ATANMADI | ATANDI | YOLDA | TESLIM_EDILDI
+  assignedAt DateTime?
+  pickedUpAt DateTime?
+  deliveredAt DateTime?
+  note       String?
+
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  courier User? @relation("CourierDeliveries", fields: [courierId], references: [id])
+
+  @@index([courierId])
+  @@index([status])
+}
+
+/// Sipariş geçmişi — takip sayfasındaki zaman çizelgesi ve panellerdeki denetim izi.
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  status    String
+  label     String
+  actor     String // "Satıcı: Gül Bahçesi", "Kurye: Murat Ilgaz"
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}

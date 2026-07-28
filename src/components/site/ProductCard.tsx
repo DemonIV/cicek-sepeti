@@ -1,0 +1,84 @@
+import Link from "next/link";
+import { ProductImage } from "@/components/ui/ProductImage";
+import { RatingInline } from "@/components/ui/Rating";
+import { formatPrice } from "@/lib/format";
+
+export type ProductCardData = {
+  slug: string;
+  name: string;
+  price: number;
+  stock: number;
+  imageUrl: string;
+  rating: number;
+  reviewCount: number;
+  seller: { storeName: string; city: string };
+};
+
+/**
+ * Izgaradaki kart genişliği: telefonda ~%50, tablette %34–25, masaüstünde
+ * %21–17. `sizes` bu merdiveni birebir tarif eder — yanlış olursa tarayıcı ya
+ * bulanık (fazla küçük) ya da gereksiz ağır (fazla büyük) dosya indirir.
+ */
+const CARD_SIZES =
+  "(max-width: 640px) 50vw, (max-width: 768px) 34vw, (max-width: 1024px) 25vw, (max-width: 1536px) 21vw, 260px";
+
+export function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: ProductCardData;
+  priority?: boolean;
+}) {
+  const soldOut = product.stock <= 0;
+  const low = !soldOut && product.stock <= 5;
+
+  return (
+    <Link
+      href={`/urun/${product.slug}`}
+      className="product-card card group flex flex-col overflow-hidden"
+    >
+      {/* Tam kare görsel: ızgara sık kurulduğunda kartlar aynı yüksekliğe
+          oturur, bir ekranda çok daha fazla ürün görünür. */}
+      <div className="relative aspect-square bg-plum-100">
+        <ProductImage
+          src={product.imageUrl}
+          alt={product.name}
+          priority={priority}
+          sizes={CARD_SIZES}
+          className="transition-transform duration-500 group-hover:scale-[1.04]"
+        />
+
+        {soldOut && (
+          <div className="absolute inset-0 flex items-center justify-center bg-plum-950/45">
+            <span className="rounded-sm bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-plum-900">
+              Tükendi
+            </span>
+          </div>
+        )}
+
+        {low && (
+          <span className="absolute bottom-2 left-2 rounded-sm bg-gold-100 px-1.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-gold-700 shadow-sm">
+            Son {product.stock} adet
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col p-2.5 sm:p-3">
+        <p className="truncate font-mono text-[9.5px] uppercase tracking-[0.11em] text-faint">
+          {product.seller.storeName} · {product.seller.city}
+        </p>
+        <h3 className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-plum-950 sm:text-[13px]">
+          {product.name}
+        </h3>
+
+        {/* Puan fiyatın üstünde durur: önce güven, sonra rakam. */}
+        <div className="mt-auto pt-2">
+          <RatingInline value={product.rating} count={product.reviewCount} />
+          <p className="tabular mt-1.5 font-display text-[1.1rem] font-medium leading-none text-bloom-700 sm:text-[1.15rem]">
+            {formatPrice(product.price)}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
