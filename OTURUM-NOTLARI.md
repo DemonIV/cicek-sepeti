@@ -18,6 +18,10 @@ npm run seed
 npm run dev          # localhost:3000
 ```
 
+**Depo:** https://github.com/DemonIV/cicek-sepeti — `main` dalı, 28 Temmuz 2026'da
+tek commit olarak yüklendi. `.env` (sadece SQLite yolu) bilerek repoda; `git clone`
+sonrası ek ayar gerekmesin diye.
+
 **§9'daki 9 adımlık demo senaryosu 27 Temmuz'da uçtan uca test edildi ve geçti.**
 Sipariş verme → satıcı hazırlama → admin kurye atama → kurye teslim → müşteri
 takibi → admin panosu döngüsünde kırık ekran veya hata yok.
