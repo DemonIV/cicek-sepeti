@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 28 Temmuz 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 30 Temmuz 2026 (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -22,9 +22,13 @@ npm run dev          # localhost:3000
 tek commit olarak yüklendi. `.env` (sadece SQLite yolu) bilerek repoda; `git clone`
 sonrası ek ayar gerekmesin diye.
 
-**Yayın:** Render blueprint'i `render.yaml` içinde. SQLite build sırasında seed
-edilir, Render diski geçici — veri her yeniden başlatmada seed hâline döner.
-Ayrıntılar ve sunum öncesi yapılacaklar README'nin "Yayına alma" bölümünde.
+**Yayın:** 30 Temmuz'da Render'da canlıya alındı →
+https://cicek-marketplace-demo.onrender.com (blueprint `render.yaml`, free plan,
+Frankfurt, `main` dalından otomatik deploy). SQLite build sırasında seed edilir,
+Render diski geçici — veri her yeniden başlatmada seed hâline döner. Ayrıntılar
+ve sunum öncesi yapılacaklar README'nin "Yayına alma" bölümünde. **İlk deneme
+502 verdi; sebebi ve çözümü §2a'da — oraya bakmadan görsel ayarlarına
+dokunma.**
 
 **§9'daki 9 adımlık demo senaryosu 27 Temmuz'da uçtan uca test edildi ve geçti.**
 Sipariş verme → satıcı hazırlama → admin kurye atama → kurye teslim → müşteri
@@ -38,6 +42,38 @@ takibi → admin panosu döngüsünde kırık ekran veya hata yok.
 > adımlarını.
 
 `tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor.
+
+---
+
+## 2a. 30 Temmuz oturumu — Render'da yayına alındı, 502 çözüldü
+
+Kullanıcı Render panelinden Blueprint ile servisi kurdu (`New → Blueprint → repo
+→ Apply`). İlk deploy başarılı geçti ama **site 502 veriyordu.**
+
+**Teşhis:** sayfa kodunda hata yok — sunucu süreci ölüyordu. `curl` ile rotalar
+tek tek denendi; HTML rotaları 200 dönerken `/_next/image?...` istekleri 502
+veriyordu ve o istekten sonra **ana sayfa da** 502'ye düşüyordu. Sebep:
+
+- Next'in yerleşik görsel optimizer'ı kareyi **kendi sunucumuzda** açıyor.
+- Seed'deki URL'ler ham Unsplash dosyasına işaret ediyor: ölçüldü, tanesi
+  **6.996.185 bayt (~7 MB), ~6000 px**.
+- Katalog sayfası bir seferde onlarca kare istiyor. Free plan kutusu 512 MB;
+  `sharp` çözerken bellek bitiyor, Node OOM ile ölüyor, tüm servis düşüyor.
+
+**Çözüm:** `src/lib/image-loader.ts` — özel `next/image` yükleyicisi. Unsplash
+URL'lerine `w`/`q`/`auto=format`/`fit=crop` ekliyor, ölçeklendirme imgix'e
+(Unsplash CDN) geçti. Sunucuya düşen iş sıfır. Kazanımlar korundu: AVIF/WebP
+(200 px kart ~16 KB, 1080 px kahraman ~128 KB — `Accept` başlığıyla doğrulandı),
+`imageSizes` basamaklarıyla responsive `srcSet`, blur placeholder, `quality={88}`.
+
+> ⚠️ **`next.config.ts`'ten `loader: "custom"` satırını kaldırma** — kaldırınca
+> free plan'de site yine çöker. Özel yükleyici devredeyken `remotePatterns`,
+> `formats` ve `minimumCacheTTL` yerleşik optimizere ait olduğundan işlemez;
+> bu yüzden silindiler, eksik değiller. Unsplash dışı konaklar (satıcı panelinden
+> elle girilen URL) olduğu gibi geçer.
+
+`tsc --noEmit` temiz, `npm run build` temiz, üretim sunucusunda `srcSet`
+çıktısında `_next/image` kalmadığı doğrulandı.
 
 ---
 
@@ -192,6 +228,9 @@ kararlar, kapsam dışı.
 - **Dev sunucusu açıkken `npm run build` çalıştırma** — ikisi `.next` dizinini
   paylaşıyor, istemci paketi bozuluyor (bir kez "sepete ekle çalışmıyor" gibi
   görünen sahte bir hataya yol açtı). Önce sunucuyu durdur.
+- **Render free plan 512 MB RAM.** Sunucuda görsel işlemek (Next optimizer) bu
+  kutuda tüm servisi 502'ye düşürüyor — bkz. §2a. Yeni bir ağır iş eklerken
+  (PDF üretimi, görsel işleme, büyük dosya) belleği hesaba kat.
 - **Görseller Unsplash'ten geliyor, internet gerekir.** Bağlantı yoksa uygulama
   kırılmaz; `ProductImage` yerel çiçek çizimine düşer. Sunumdan önce sayfaları
   bir kez gezip önbelleğe almak iyi olur.
