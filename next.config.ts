@@ -4,20 +4,18 @@ const nextConfig: NextConfig = {
   // Depo dışındaki lockfile'lar yüzünden yanlış kök seçilmesin.
   outputFileTracingRoot: import.meta.dirname,
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "plus.unsplash.com" },
-    ],
-    // Ürün fotoğrafı bu vitrinin kahramanı: AVIF/WebP aynı bant genişliğinde
-    // belirgin biçimde daha temiz görüntü verir. Sıra önemli — tarayıcı
-    // desteklediği ilk biçimi alır.
-    formats: ["image/avif", "image/webp"],
+    // Ölçeklendirme Unsplash CDN'ine devredildi — gerekçesi ve ölçümü
+    // `src/lib/image-loader.ts` başındaki notta. Yerleşik optimizer görselleri
+    // kendi sunucumuzda açtığı için 512 MB'lık kutuda süreci OOM ile
+    // öldürüyordu. Özel yükleyici devredeyken `remotePatterns`, `formats` ve
+    // `minimumCacheTTL` yerleşik optimizere ait olduğundan işlemez; AVIF/WebP
+    // seçimini `auto=format`, önbelleği Unsplash kenarı üstlenir.
+    loader: "custom",
+    loaderFile: "./src/lib/image-loader.ts",
     // Kart genişliği 2 sütunlu telefondan 6 sütunlu masaüstüne kadar değişiyor.
-    // Ara ölçüler olmazsa optimizer bir üst basamağa yuvarlıyor: ya gereksiz
-    // ağır dosya iniyor ya da 1.5x/2x ekranda yumuşama görülüyor.
+    // Ara ölçüler olmazsa srcset bir üst basamağa yuvarlıyor: ya gereksiz ağır
+    // dosya iniyor ya da 1.5x/2x ekranda yumuşama görülüyor.
     imageSizes: [16, 32, 48, 64, 96, 128, 200, 256, 320, 384],
-    // Optimize edilmiş kareler 31 gün önbellekte kalsın (varsayılan 60 sn).
-    minimumCacheTTL: 2678400,
   },
 };
 

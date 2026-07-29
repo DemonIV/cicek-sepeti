@@ -51,8 +51,13 @@ kurmak isteyen için karşılığı:
 | Start command | `npm run start` |
 | Ortam değişkeni | `DATABASE_URL=file:./dev.db` |
 
-Bilinmesi gereken üç şey:
+Bilinmesi gereken dört şey:
 
+- **Görselleri Next optimizer'ına verme.** Ücretsiz plan 512 MB RAM; yerleşik
+  optimizer ham Unsplash dosyalarını (~7 MB) bu kutuda açmaya kalkınca süreç OOM
+  ile ölüyor ve **site tamamen 502 veriyor** (ilk yayın denemesi böyle düştü).
+  Bu yüzden ölçeklendirme `src/lib/image-loader.ts` ile Unsplash CDN'ine
+  devredildi. `next.config.ts`'te `loader: "custom"` satırını kaldırmayın.
 - **Veri kalıcı değil.** SQLite dosyası build sırasında oluşturulup seed edilir,
   Render'ın diski ise geçicidir. Servis her yeniden başladığında veri seed
   hâline döner — sunumda girilen sipariş kalmaz. Demo için bilinçli tercih:
@@ -214,17 +219,24 @@ yok.
 **Görsel kalitesi (production).** Fotoğraf bu vitrinin kahramanı olduğu için
 ayarlar bilinçli:
 
-- `next.config.ts` → `formats: ["image/avif", "image/webp"]`. Aynı kare AVIF'te
-  ~11 KB, JPEG'de ~15 KB; AVIF daha temiz.
+- **Ölçeklendirme Unsplash CDN'inde**, kendi sunucumuzda değil
+  (`src/lib/image-loader.ts` — özel `next/image` yükleyicisi). `auto=format` ile
+  tarayıcı AVIF/WebP alıyor: 200 px'lik kart karesi AVIF'te ~16 KB, JPEG'de
+  ~17 KB; 1080 px'lik kahraman görsel ~128 KB.
+  > Neden: yerleşik optimizer görseli **bizim** sunucumuzda açıyor. Seed'deki
+  > ham Unsplash dosyaları ~7 MB / ~6000 px; katalog onlarcasını aynı anda
+  > isteyince 512 MB'lık Render free plan kutusu OOM ile ölüyor ve **tüm site
+  > 502 veriyordu.** İlk yayın denemesi tam bu yüzden düştü. Özel yükleyici
+  > devredeyken `remotePatterns`, `formats` ve `minimumCacheTTL` yerleşik
+  > optimizere ait olduğu için işlemez — silinmeleri kasıtlı.
 - `quality={88}` (Next varsayılanı 75). Fark pembe geçişlerde ve yaprak
   kenarlarında görülüyor.
 - `imageSizes`'a 200/320 eklendi: kart genişlikleri 2 sütundan 6 sütuna
-  değişiyor, ara basamak yoksa optimizer bir üste yuvarlıyor.
+  değişiyor, ara basamak yoksa srcset bir üste yuvarlıyor.
 - Her `ProductImage` çağrısında `sizes` gerçek kutu genişliğini tarif eder
   (kart için beş kademeli, küçük görsellerde piksel değeri). Yanlış `sizes`
   bulanık ya da gereksiz ağır görsel demektir — kalitede en belirleyici ayar bu.
 - Yüklenirken pudra pembesi bir blur placeholder duruyor, beyaz sıçrama yok.
-- `minimumCacheTTL` 31 gün.
 
 **İmza form: kemer.** Vitrin camının ve buketin silueti. Ürün ızgarası kareye
 geçtiğinden kemer yalnızca editoryal yüzeylerde kaldı — seyrek olduğu için süs
