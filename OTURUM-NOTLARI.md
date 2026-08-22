@@ -117,6 +117,16 @@ Başlık yüzü **Bodoni Moda → Outfit**. Bodoni yalnızca hediye notunda kald
 `--font-display` bunları sarar. next/font'a doğrudan `--font-display` adını
 verirsen kendi kendini referanslayıp yazı tipi çöker.
 
+### Yayın kaydı
+
+21 Ağustos akşamı `main`'e push edildi: **`bb79e4b`** (67 dosya, +7.526/−904).
+Render `main`'den otomatik deploy ediyor, yayın kendiliğinden tetiklendi.
+
+> ⚠️ Bu commit'in **başlık satırı bozuk**: mesajın başına ve sonuna birer `@`
+> karakteri kaçtı (PowerShell here-string sözdizimi yanlışlıkla Bash tarafında
+> kullanıldı). Gövde eksiksiz. Kullanıcı "böyle kalsın" dedi — geçmişi yeniden
+> yazma, `--force` push atma. Sonraki commit'lerde `-m` için düz tırnak kullan.
+
 ### Test edildi
 
 10 adımlık demo senaryosu tarayıcıda uçtan uca koşuldu (sipariş `CS-2026-0039`):
