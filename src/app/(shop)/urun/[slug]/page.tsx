@@ -2,22 +2,30 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { ProductImage } from "@/components/ui/ProductImage";
 import { ProductCard } from "@/components/site/ProductCard";
 import { AddToCart } from "@/components/site/AddToCart";
+import { AddOnPicker } from "@/components/site/AddOnPicker";
+import { ProductGallery } from "@/components/site/ProductGallery";
+import { DiscountCountdown } from "@/components/site/DiscountCountdown";
 import { Badge } from "@/components/ui/Badge";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { RatingBlock } from "@/components/ui/Rating";
 import { formatPrice } from "@/lib/format";
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/pricing";
-import { DELIVERY_SLOTS } from "@/lib/enums";
+import { ADDON_KIND_LABEL, DELIVERY_SLOTS, type AddOnKind } from "@/lib/enums";
+import { priceInfo } from "@/lib/discount";
+import { getSelectedArea, sellerServesSelectedArea, areaLabel } from "@/lib/delivery-area";
 
 type Params = Promise<{ slug: string }>;
 
 async function loadProduct(slug: string) {
   return db.product.findUnique({
     where: { slug },
-    include: { seller: true, category: true },
+    include: {
+      seller: true,
+      category: true,
+      media: { orderBy: { sortOrder: "asc" } },
+    },
   });
 }
 
@@ -39,19 +47,44 @@ export default async function ProductPage({ params }: { params: Params }) {
     notFound();
   }
 
-  const related = await db.product.findMany({
-    where: {
-      categoryId: product.categoryId,
-      id: { not: product.id },
-      isActive: true,
-      seller: { status: "APPROVED" },
-    },
-    include: { seller: true },
-    take: 6,
-  });
+  const [related, addOns, area, servesArea] = await Promise.all([
+    db.product.findMany({
+      where: {
+        categoryId: product.categoryId,
+        id: { not: product.id },
+        isActive: true,
+        isAddOn: false,
+        seller: { status: "APPROVED" },
+      },
+      include: { seller: true },
+      take: 6,
+    }),
+    // Ek ürünler (madde 6) — çiçeğin yanına eklenebilenler.
+    product.isAddOn
+      ? []
+      : db.product.findMany({
+          where: { isAddOn: true, isActive: true, stockClosed: false, stock: { gt: 0 } },
+          include: { seller: true },
+          orderBy: { price: "asc" },
+          take: 8,
+        }),
+    getSelectedArea(),
+    sellerServesSelectedArea(product.sellerId),
+  ]);
 
+  const price = priceInfo(product);
   const low = product.stock > 0 && product.stock <= 5;
-  const freeShipping = product.price >= FREE_SHIPPING_THRESHOLD;
+  const closed = product.stockClosed || !product.seller.acceptingOrders;
+  const freeShipping = price.price >= FREE_SHIPPING_THRESHOLD;
+
+  // Galeri: seed'de her ürüne en az üç kare düşer; hiç yoksa ana görsele döner.
+  const gallery = product.media.length
+    ? product.media.map((item) => ({
+        id: item.id,
+        url: item.url,
+        kind: item.kind === "VIDEO" ? ("VIDEO" as const) : ("IMAGE" as const),
+      }))
+    : [{ id: product.id, url: product.imageUrl, kind: "IMAGE" as const }];
 
   // Son teslimat dilimi geçtiyse en erken teslimat yarına kayar. Demo için
   // yeterli bir kural; gerçek sistemde çiçekçinin çalışma saatinden gelir.
@@ -79,14 +112,11 @@ export default async function ProductPage({ params }: { params: Params }) {
           sayfanın sol kenarına yapışıyor, sağ sütun boşlukta kalıyordu. */}
       <div className="mx-auto grid max-w-[78rem] gap-10 lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-14">
         {/* Kahraman görsel tam kare: katalogdaki kartla aynı çerçeve */}
-        <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-line bg-plum-100 shadow-[var(--shadow-lift)]">
-          <ProductImage
-            src={product.imageUrl}
-            alt={product.name}
-            priority
-            sizes="(max-width: 1024px) 100vw, 480px"
-          />
-        </div>
+        <ProductGallery
+          items={gallery}
+          alt={product.name}
+          poster={product.imageUrl}
+        />
 
         <div className="lg:py-2">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -106,12 +136,31 @@ export default async function ProductPage({ params }: { params: Params }) {
           </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <p className="tabular font-display text-[2rem] font-semibold leading-none text-plum-950">
-              {formatPrice(product.price)}
+            <p className="tabular font-display text-[2rem] font-semibold leading-none text-bloom-700">
+              {formatPrice(price.price)}
             </p>
+            {price.isDiscounted && (
+              <>
+                <p className="tabular text-[17px] text-faint line-through">
+                  {formatPrice(price.listPrice)}
+                </p>
+                <Badge tone="bloom">%{price.percent} indirim</Badge>
+              </>
+            )}
             {low && <Badge tone="amber">Son {product.stock} adet</Badge>}
             {product.stock <= 0 && <Badge tone="neutral">Tükendi</Badge>}
           </div>
+
+          {price.isDiscounted && price.endsAt && (
+            <p className="mt-2.5 flex items-center gap-2 text-[13px] text-muted">
+              <Icon name="clock" size={14} className="text-bloom-600" />
+              İndirimin bitmesine
+              <DiscountCountdown
+                endsAt={price.endsAt.toISOString()}
+                className="font-semibold text-plum-950"
+              />
+            </p>
+          )}
 
           <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-muted">
             {product.description}
@@ -129,9 +178,41 @@ export default async function ProductPage({ params }: { params: Params }) {
             <DeliveryPromise icon="tag" label="Hediye notu" value="Ücretsiz" />
           </div>
 
-          <div className="mt-6">
-            <AddToCart productId={product.id} stock={product.stock} />
-          </div>
+          {/* Bölge uyarısı (madde 12): seçili mahalleye gönderilemiyorsa
+              sepete eklemeden önce söylenir. */}
+          {area && !servesArea && (
+            <p className="mt-6 rounded-md border border-[#eed9ae] bg-gold-100 px-3.5 py-3 text-[13px] leading-snug text-gold-700">
+              <strong className="font-semibold">
+                {product.seller.storeName}
+              </strong>{" "}
+              seçili bölgene ({areaLabel(area)}) teslimat yapmıyor. Bu ürünü
+              sepete ekleyebilirsin ama ödeme adımında başka bir mahalle
+              seçmen gerekir.{" "}
+              <Link
+                href="/teslimat-bolgesi"
+                className="link-underline font-semibold"
+              >
+                Bölgeyi değiştir
+              </Link>
+            </p>
+          )}
+
+          {closed ? (
+            <div className="mt-6 rounded-lg border border-line bg-plum-50 px-4 py-3.5">
+              <p className="text-sm font-semibold text-plum-900">
+                Bu ürün şu an satışa kapalı
+              </p>
+              <p className="mt-1 text-[13px] text-muted">
+                {product.stockClosed
+                  ? "Çiçekçi bu ürünün stoğunu geçici olarak kapattı."
+                  : `${product.seller.storeName} şu anda sipariş almıyor.`}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <AddToCart productId={product.id} stock={product.stock} />
+            </div>
+          )}
 
           <dl className="mt-8 divide-y divide-[var(--color-line)] border-y border-line text-sm">
             <Row
@@ -152,6 +233,23 @@ export default async function ProductPage({ params }: { params: Params }) {
           </dl>
         </div>
       </div>
+
+      {/* ------------------------------- Ek ürünler ------------------------------ */}
+      {addOns.length > 0 && (
+        <section className="mx-auto mt-14 max-w-[78rem] rounded-[var(--radius-banner-sm)] border border-line bg-surface p-5 sm:p-6">
+          <AddOnPicker
+            options={addOns.map((item) => ({
+              id: item.id,
+              name: item.name,
+              price: priceInfo(item).price,
+              imageUrl: item.imageUrl,
+              kindLabel:
+                ADDON_KIND_LABEL[(item.addOnKind ?? "KART") as AddOnKind],
+              storeName: item.seller.storeName,
+            }))}
+          />
+        </section>
+      )}
 
       {related.length > 0 && (
         <section className="mt-20">

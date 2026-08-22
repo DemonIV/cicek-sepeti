@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { getCartDetail } from "@/lib/cart";
 import { db } from "@/lib/db";
-import { CITIES, DELIVERY_SLOTS } from "@/lib/enums";
+import { DELIVERY_SLOTS } from "@/lib/enums";
+import { getAreaTree, getSelectedArea } from "@/lib/delivery-area";
 import { formatPrice } from "@/lib/format";
 import { lineTotal } from "@/lib/pricing";
 import { CheckoutForm } from "@/components/site/CheckoutForm";
@@ -34,13 +35,18 @@ export default async function CheckoutPage() {
     );
   }
 
-  const addresses = await db.address.findMany({
-    where: { userId: user.id },
-    orderBy: { isDefault: "desc" },
-  });
+  const [addresses, areaTree, selectedArea] = await Promise.all([
+    db.address.findMany({
+      where: { userId: user.id },
+      orderBy: { isDefault: "desc" },
+    }),
+    getAreaTree(),
+    getSelectedArea(),
+  ]);
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Varsayılan teslimat günü BUGÜN: aynı gün teslimat platformun ana vaadi ve
+  // satıcı paneli "bugün" ile açıldığı için yeni sipariş oraya düşer (madde 3).
+  const today = new Date();
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6">
@@ -68,10 +74,11 @@ export default async function CheckoutPage() {
             district: a.district,
             fullAddress: a.fullAddress,
           }))}
-          cities={CITIES}
+          areaTree={areaTree}
+          selectedAreaId={selectedArea?.id ?? null}
           slots={DELIVERY_SLOTS}
           customer={{ name: user.name, phone: user.phone }}
-          defaultDate={isoDate(tomorrow)}
+          defaultDate={isoDate(today)}
           minDate={isoDate(new Date())}
         />
 

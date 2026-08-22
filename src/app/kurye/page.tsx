@@ -37,6 +37,11 @@ export default async function CourierDeliveriesPage() {
 
   const onTheWay = deliveries.filter((d) => d.status === "YOLDA").length;
 
+  // Madde 18: sipariş arabaya verilmeden kuryenin işi başlamaz. Arabaya
+  // verilenler "işlem gören" listesinde, verilmeyenler hazırlıkta bekler.
+  const inProgress = deliveries.filter((d) => d.dispatchedAt !== null);
+  const waiting = deliveries.filter((d) => d.dispatchedAt === null);
+
   return (
     <>
       <PanelHeader
@@ -46,17 +51,17 @@ export default async function CourierDeliveriesPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          label="Bekleyen teslimat"
-          value={String(deliveries.length)}
+          label="İşlem gören"
+          value={String(inProgress.length)}
           icon="truck"
-          accent={deliveries.length > 0}
-          hint="Alınacak ve yoldaki toplam"
+          accent={inProgress.length > 0}
+          hint="Arabaya verilmiş, taşınmayı bekleyen"
         />
         <StatCard
-          label="Yolda"
-          value={String(onTheWay)}
+          label="Hazırlıkta"
+          value={String(waiting.length)}
           icon="clock"
-          hint="Çiçekçiden alındı, adrese gidiyor"
+          hint={`Çiçekçi henüz arabaya vermedi · ${onTheWay} tanesi yolda`}
         />
         <StatCard
           label="Bugün teslim edilen"
@@ -66,7 +71,13 @@ export default async function CourierDeliveriesPage() {
         />
       </div>
 
-      <h2 className="mb-3 mt-8 text-[15px] font-semibold">Teslimat listesi</h2>
+      <h2 className="mb-1 mt-8 text-[15px] font-semibold">
+        İşlem gören teslimatlar
+      </h2>
+      <p className="mb-3 text-[12.5px] text-muted">
+        Çiçekçinin arabaya verdiği siparişler. Boşuna yola çıkmamak için önce
+        buraya bak.
+      </p>
 
       {deliveries.length === 0 ? (
         <EmptyState
@@ -74,9 +85,15 @@ export default async function CourierDeliveriesPage() {
           description="Operasyon ekibi sana teslimat atadığında burada listelenir ve rozet üzerinde sayısı görünür."
           action={{ href: "/kurye/gecmis", label: "Geçmiş teslimatlar" }}
         />
+      ) : inProgress.length === 0 ? (
+        <EmptyState
+          compact
+          title="Arabaya verilmiş sipariş yok"
+          description="Sana atanan siparişler çiçekçinin hazırlığını bekliyor. Arabaya verildiğinde bu listeye düşerler."
+        />
       ) : (
         <ul className="space-y-4">
-          {deliveries.map((delivery) => {
+          {inProgress.map((delivery) => {
             const order = delivery.order;
             const actions = allowedActions(
               "COURIER",
@@ -158,6 +175,52 @@ export default async function CourierDeliveriesPage() {
             );
           })}
         </ul>
+      )}
+
+      {/* --------------------- Hazırlık bekleyenler --------------------- */}
+      {waiting.length > 0 && (
+        <>
+          <h2 className="mb-1 mt-10 text-[15px] font-semibold">
+            Çiçekçi hazırlığında
+          </h2>
+          <p className="mb-3 text-[12.5px] text-muted">
+            Sana atandı ama henüz arabaya verilmedi. Çiçekçi hazırlığı bitirince
+            yukarıdaki listeye geçer.
+          </p>
+
+          <ul className="space-y-2.5">
+            {waiting.map((delivery) => (
+              <li
+                key={delivery.id}
+                className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <Link
+                    href={`/kurye/${delivery.order.orderNo}`}
+                    className="mono text-[13px] font-semibold text-plum-950 hover:underline"
+                  >
+                    {delivery.order.orderNo}
+                  </Link>
+                  <span className="text-[12.5px] text-muted">
+                    {delivery.order.recipientName} ·{" "}
+                    {delivery.order.deliveryDistrict
+                      ? `${delivery.order.deliveryDistrict}, `
+                      : ""}
+                    {delivery.order.deliveryCity}
+                  </span>
+                  <span className="tabular text-[12px] text-faint">
+                    {formatDate(delivery.order.deliveryDate)} ·{" "}
+                    {delivery.order.deliverySlot}
+                  </span>
+                </div>
+                <span className="flex items-center gap-2 text-[12px] font-medium text-muted">
+                  <Icon name="clock" size={14} className="text-plum-400" />
+                  Arabaya verilmedi
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );

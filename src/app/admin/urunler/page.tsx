@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
+import { priceInfo } from "@/lib/discount";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { FilterChip } from "@/components/panel/FilterChip";
 import { ProductVisibilityToggle } from "@/components/panel/AdminControls";
@@ -12,14 +13,20 @@ import { Icon } from "@/components/ui/Icon";
 
 export const metadata: Metadata = { title: "Ürün yönetimi" };
 
-type Search = Promise<{ satici?: string; q?: string; durum?: string }>;
+type Search = Promise<{
+  satici?: string;
+  q?: string;
+  durum?: string;
+  eklendi?: string;
+  guncellendi?: string;
+}>;
 
 export default async function AdminProductsPage({
   searchParams,
 }: {
   searchParams: Search;
 }) {
-  const { satici, q, durum } = await searchParams;
+  const { satici, q, durum, eklendi, guncellendi } = await searchParams;
 
   const where = {
     ...(satici ? { seller: { slug: satici } } : {}),
@@ -56,25 +63,37 @@ export default async function AdminProductsPage({
     <>
       <PanelHeader
         title="Ürün yönetimi"
-        description="Tüm satıcıların ürünleri. Kural dışı bir ürünü buradan yayından kaldırabilirsin."
+        description="Tüm bayilerin ürünleri. Ürün bilgisi, galerisi ve zamanlı indirimi buradan yönetilir; bayi yalnızca stoğu kapatabilir."
         actions={
-          <form action="/admin/urunler" className="relative">
-            {satici && <input type="hidden" name="satici" value={satici} />}
-            <Icon
-              name="search"
-              size={15}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
-            />
-            <input
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Ürün ara…"
-              aria-label="Ürün ara"
-              className="field py-1.5 pl-8 text-[13px] sm:w-56"
-            />
-          </form>
+          <>
+            <form action="/admin/urunler" className="relative">
+              {satici && <input type="hidden" name="satici" value={satici} />}
+              <Icon
+                name="search"
+                size={15}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
+              />
+              <input
+                name="q"
+                defaultValue={q ?? ""}
+                placeholder="Ürün ara…"
+                aria-label="Ürün ara"
+                className="field py-1.5 pl-8 text-[13px] sm:w-56"
+              />
+            </form>
+            <Link href="/admin/urunler/yeni" className="btn btn-primary btn-sm">
+              <Icon name="plus" size={15} />
+              Ürün ekle
+            </Link>
+          </>
         }
       />
+
+      {(eklendi || guncellendi) && (
+        <p className="mb-5 rounded-md border border-plum-200 bg-plum-50 px-4 py-3 text-[13px] font-medium text-plum-800">
+          {eklendi ? "Ürün eklendi ve vitrine gönderildi." : "Ürün güncellendi."}
+        </p>
+      )}
 
       <div className="mb-3 flex flex-wrap gap-2">
         <FilterChip
@@ -164,8 +183,27 @@ export default async function AdminProductsPage({
                       )}
                     </td>
                     <td className="text-muted">{product.category.name}</td>
-                    <td className="tabular font-semibold">
-                      {formatPrice(product.price)}
+                    <td>
+                      {(() => {
+                        const price = priceInfo(product);
+                        return (
+                          <>
+                            <p className="tabular font-semibold">
+                              {formatPrice(price.price)}
+                            </p>
+                            {price.isDiscounted && (
+                              <p className="tabular text-[11px] text-bloom-700">
+                                %{price.percent} indirimli
+                              </p>
+                            )}
+                            {price.scheduled && (
+                              <p className="text-[11px] text-muted">
+                                İndirim planlandı
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="tabular">
                       {product.stock === 0 ? (
@@ -178,7 +216,11 @@ export default async function AdminProductsPage({
                       {product._count.items}
                     </td>
                     <td>
-                      {product.isActive ? (
+                      {product.stockClosed ? (
+                        <Badge tone="amber" dot>
+                          Bayi stoğu kapattı
+                        </Badge>
+                      ) : product.isActive ? (
                         <Badge tone="leaf" dot>
                           Yayında
                         </Badge>
@@ -189,7 +231,13 @@ export default async function AdminProductsPage({
                       )}
                     </td>
                     <td>
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/admin/urunler/${product.id}`}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Düzenle
+                        </Link>
                         <ProductVisibilityToggle
                           productId={product.id}
                           isActive={product.isActive}

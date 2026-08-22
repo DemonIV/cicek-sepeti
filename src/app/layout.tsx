@@ -1,19 +1,32 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Manrope, JetBrains_Mono } from "next/font/google";
+import { Bodoni_Moda, Manrope, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DemoBar } from "@/components/site/DemoBar";
 import { SetupNotice } from "@/components/site/SetupNotice";
 import { isDatabaseSeeded } from "@/lib/auth";
 
 /**
- * Başlık yüzü: yüksek kontrastlı didone. Çiçekçi vitrininin ve hediye kartının
- * kibarlığını taşır; iri boyda kullanılır, gövde metnine hiç girmez.
+ * Başlık yüzü: geometrik, açık gözlü bir sans. Didone'nin ince tırnakları
+ * küçük boyda dağılıyordu; başlıkların ilk işi okunmak (müşteri isteği,
+ * 21 Ağustos 2026). Outfit iri boyda ferah, 16 px'te bile net durur.
  */
-const display = Bodoni_Moda({
+const display = Outfit({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-bodoni",
+  variable: "--font-outfit",
   display: "swap",
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700"],
+});
+
+/**
+ * Yalnızca hediye notu için: elle yazılmış kart hissini taşıyan italik didone.
+ * Başlıklardan çekildi ama imza öğesinde kaldı — dört rolün de gördüğü o kart
+ * markanın kendisi.
+ */
+const note = Bodoni_Moda({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-bodoni-note",
+  display: "swap",
+  style: ["italic"],
 });
 
 /** Gövde yüzü: geometrik ama yuvarlak omuzlu — didonenin sertliğini dengeler. */
@@ -46,7 +59,7 @@ export default async function RootLayout({
   return (
     <html
       lang="tr"
-      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      className={`${display.variable} ${sans.variable} ${note.variable} ${mono.variable}`}
     >
       <body className="min-h-screen">
         {seeded ? (

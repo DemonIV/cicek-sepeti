@@ -5,8 +5,11 @@ import { ProductImage } from "@/components/ui/ProductImage";
 import { GiftNoteCard } from "@/components/ui/GiftNote";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatPriceShort } from "@/lib/format";
+import { formatPrice, formatPriceShort } from "@/lib/format";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/pricing";
+import { activeDiscountWhere, priceInfo } from "@/lib/discount";
+import { areaFilter, getSelectedArea, areaLabel } from "@/lib/delivery-area";
+import { DiscountCountdown } from "@/components/site/DiscountCountdown";
 
 /**
  * Vitrin üçlemesi **elle seçilir.** Sıralamanın getirdiği ilk üç ürün
@@ -24,43 +27,74 @@ const HERO_SLUGS = {
 const CAMPAIGN_SLUG = "kalp-kutuda-kirmizi-guller";
 
 export default async function HomePage() {
-  const [featured, heroPicks, categories, sellers, productCount, cityCount] =
-    await Promise.all([
-      // Önce öne çıkanlar, sonra en çok değerlendirilenler. Vitrinde işaretli ürün
-      // 12'den azsa boşluk kalmasın diye popülerlerle tamamlanır — 12, ızgaranın
-      // 2/3/4/6 sütunlu hâllerinde tam satırla kapanır.
-      db.product.findMany({
-        where: { isActive: true, seller: { status: "APPROVED" } },
-        include: { seller: true },
-        orderBy: [
-          { isFeatured: "desc" },
-          { reviewCount: "desc" },
-          { createdAt: "desc" },
-        ],
-        take: 12,
-      }),
-      db.product.findMany({
-        where: {
-          slug: { in: [...Object.values(HERO_SLUGS), CAMPAIGN_SLUG] },
-          isActive: true,
-          seller: { status: "APPROVED" },
-        },
-        include: { seller: true },
-      }),
-      db.category.findMany({ orderBy: { sortOrder: "asc" } }),
-      db.seller.findMany({
-        where: { status: "APPROVED" },
-        orderBy: { rating: "desc" },
-      }),
-      db.product.count({
-        where: { isActive: true, seller: { status: "APPROVED" } },
-      }),
-      db.seller.findMany({
-        where: { status: "APPROVED" },
-        select: { city: true },
-        distinct: ["city"],
-      }),
-    ]);
+  const now = new Date();
+  // Bölge seçiliyse vitrin de daralır: gösterilen her ürün oraya gönderilebilir
+  // (madde 12). Seçim yoksa filtre boş nesnedir, katalog daralmaz.
+  const [area, byArea] = await Promise.all([getSelectedArea(), areaFilter()]);
+  const sellable = {
+    isActive: true,
+    isAddOn: false,
+    seller: { status: "APPROVED" as const },
+    ...byArea,
+  };
+
+  const [
+    featured,
+    heroPicks,
+    categories,
+    sellers,
+    productCount,
+    cityCount,
+    weeklyPick,
+    discounted,
+  ] = await Promise.all([
+    // Önce öne çıkanlar, sonra en çok değerlendirilenler. Vitrinde işaretli ürün
+    // 12'den azsa boşluk kalmasın diye popülerlerle tamamlanır — 12, ızgaranın
+    // 2/3/4/6 sütunlu hâllerinde tam satırla kapanır.
+    db.product.findMany({
+      where: sellable,
+      include: { seller: true },
+      orderBy: [
+        { isFeatured: "desc" },
+        { reviewCount: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: 12,
+    }),
+    db.product.findMany({
+      where: {
+        slug: { in: [...Object.values(HERO_SLUGS), CAMPAIGN_SLUG] },
+        isActive: true,
+        seller: { status: "APPROVED" },
+      },
+      include: { seller: true },
+    }),
+    db.category.findMany({
+      where: { isHidden: false },
+      orderBy: { sortOrder: "asc" },
+    }),
+    db.seller.findMany({
+      where: { status: "APPROVED" },
+      orderBy: { rating: "desc" },
+    }),
+    db.product.count({ where: sellable }),
+    db.seller.findMany({
+      where: { status: "APPROVED" },
+      select: { city: true },
+      distinct: ["city"],
+    }),
+    // Haftanın ürünü ve indirimdekiler (madde 24).
+    db.product.findFirst({
+      where: { ...sellable, isWeeklyPick: true },
+      include: { seller: true, category: true },
+    }),
+    db.product.findMany({
+      where: { ...sellable, ...activeDiscountWhere(now) },
+      include: { seller: true },
+      orderBy: { discountEndsAt: "asc" },
+      take: 6,
+    }),
+  ]);
 
   // Vitrin üçlemesi: ortadaki kemer yüksek, yandakiler ona eşlik eder.
   const heroBySlug = new Map(
@@ -70,6 +104,12 @@ export default async function HomePage() {
   const pickHero = (slug: string, fallbackIndex: number) =>
     heroBySlug.get(slug) ?? spare[fallbackIndex];
 
+  // İndirimli fiyat liste fiyatından küçük değilse (veri hatası) satırda
+  // indirimsiz bir kart görünmesin.
+  const liveDiscounts = discounted.filter(
+    (product) => priceInfo(product, now).isDiscounted,
+  );
+
   const center = pickHero(HERO_SLUGS.center, 0);
   const left = pickHero(HERO_SLUGS.left, 1);
   const right = pickHero(HERO_SLUGS.right, 2);
@@ -77,6 +117,35 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* --------------------------- Teslimat bölgesi ---------------------------- */}
+      {/* Seçim yapılmışsa katalog daralmıştır; bunu gizlemek yerine söyleriz. */}
+      <section className="border-b border-line bg-bloom-50/60">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[12.5px] sm:px-6">
+          <Icon name="pin" size={14} className="text-bloom-600" />
+          {area ? (
+            <>
+              <span className="font-semibold text-plum-950">
+                {areaLabel(area)}
+              </span>
+              <span className="text-muted">
+                bölgesine gönderilebilen {productCount} ürün listeleniyor.
+              </span>
+            </>
+          ) : (
+            <span className="text-muted">
+              Her ürün her mahalleye gönderilemez — çiçek en yakın çiçekçiden
+              çıkar.
+            </span>
+          )}
+          <Link
+            href="/teslimat-bolgesi"
+            className="link-underline font-semibold text-bloom-700"
+          >
+            {area ? "Bölgeyi değiştir" : "Teslimat bölgesini seç"}
+          </Link>
+        </div>
+      </section>
+
       {/* ------------------------- Hero — telefon (afiş) -------------------------- */}
       {/* Telefonda ilk ekran ürünü göstermeli: uzun başlık yerine tek kampanya
           afişi, hemen altında kategoriler ve ürün ızgarası gelir. */}
@@ -85,7 +154,7 @@ export default async function HomePage() {
           <div className="px-4 pt-4">
             <Link
               href="/urunler"
-              className="arch-sm relative block h-[15.5rem] border border-line bg-plum-100 shadow-[var(--shadow-lift)]"
+              className="relative block h-[15.5rem] overflow-hidden rounded-[var(--radius-banner)] border border-line bg-plum-100 shadow-[var(--shadow-lift)]"
             >
               <ProductImage
                 src={center.imageUrl}
@@ -100,7 +169,7 @@ export default async function HomePage() {
                 </span>
                 <h1 className="mt-2 text-[1.85rem] font-medium leading-[1.02] text-white">
                   Çiçeğin yolu{" "}
-                  <span className="italic text-bloom-200">kısa</span> olsun.
+                  <span className="text-bloom-200">kısa</span> olsun.
                 </h1>
                 <span className="btn btn-primary btn-sm mt-4">
                   Çiçekleri keşfet
@@ -130,7 +199,7 @@ export default async function HomePage() {
             <h1 className="animate-rise mt-5 text-[clamp(2.4rem,6vw,4.2rem)] font-medium leading-[0.95] tracking-[-0.03em] [animation-delay:60ms]">
               Çiçeğin yolu
               <br />
-              <span className="italic text-bloom-700">kısa</span> olsun.
+              <span className="text-bloom-700">kısa</span> olsun.
             </h1>
 
             <p className="animate-rise mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-muted [animation-delay:120ms]">
@@ -230,13 +299,104 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ------------------------------ Haftanın ürünü ---------------------------- */}
+      {/* Vitrinin ortasındaki tek ürün: operasyon ekibi haftada bir işaretler,
+          fiyatı indirimliyse geri sayımıyla birlikte görünür (madde 24). */}
+      {weeklyPick &&
+        (() => {
+          const price = priceInfo(weeklyPick, now);
+          return (
+            <section className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 md:pt-20">
+              <div className="overflow-hidden rounded-[var(--radius-banner)] border border-line bg-surface shadow-[var(--shadow-card)] md:grid md:grid-cols-[1fr_1.1fr]">
+                <Link
+                  href={`/urun/${weeklyPick.slug}`}
+                  className="group relative block aspect-square bg-plum-100 md:aspect-auto md:min-h-[24rem]"
+                >
+                  <ProductImage
+                    src={weeklyPick.imageUrl}
+                    alt={weeklyPick.name}
+                    sizes="(max-width: 768px) 100vw, 45vw"
+                    className="transition-transform duration-700 group-hover:scale-[1.03]"
+                  />
+                </Link>
+
+                <div className="flex flex-col justify-center gap-4 px-6 py-8 sm:px-10 md:py-12">
+                  <p className="eyebrow text-bloom-700">Haftanın ürünü</p>
+                  <h2 className="text-[clamp(1.5rem,3vw,2.1rem)] leading-tight">
+                    {weeklyPick.name}
+                  </h2>
+                  <p className="max-w-md text-sm leading-relaxed text-muted">
+                    {weeklyPick.description}
+                  </p>
+
+                  <p className="flex flex-wrap items-baseline gap-3">
+                    <span className="tabular font-display text-[1.9rem] font-semibold leading-none text-bloom-700">
+                      {formatPrice(price.price)}
+                    </span>
+                    {price.isDiscounted && (
+                      <>
+                        <span className="tabular text-[15px] text-faint line-through">
+                          {formatPrice(price.listPrice)}
+                        </span>
+                        <span className="badge tone-bloom">
+                          %{price.percent} indirim
+                        </span>
+                      </>
+                    )}
+                  </p>
+
+                  {price.isDiscounted && price.endsAt && (
+                    <p className="flex items-center gap-2 text-[13px] text-muted">
+                      <Icon name="clock" size={14} className="text-bloom-600" />
+                      İndirimin bitmesine
+                      <DiscountCountdown
+                        endsAt={price.endsAt.toISOString()}
+                        className="font-semibold text-plum-950"
+                      />
+                    </p>
+                  )}
+
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
+                    <Link
+                      href={`/urun/${weeklyPick.slug}`}
+                      className="btn btn-primary btn-lg"
+                    >
+                      Ürünü incele
+                      <Icon name="arrow-right" size={16} />
+                    </Link>
+                    <span className="text-[12.5px] text-muted">
+                      {weeklyPick.seller.storeName} · {weeklyPick.seller.city}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
+
+      {/* ------------------------------ İndirimdekiler ---------------------------- */}
+      {liveDiscounts.length > 0 && (
+        <section className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 md:pt-20">
+          <SectionHead
+            title="İndirimdekiler"
+            description="İndirim süresi dolduğunda fiyat kendiliğinden liste fiyatına döner."
+            action={{ href: "/urunler?koleksiyon=indirim", label: "Tüm indirimler" }}
+          />
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:mt-8 md:grid-cols-4 lg:grid-cols-6">
+            {liveDiscounts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* --------------------------------- Kampanya ------------------------------- */}
       {/* Uydurma indirim yok: kampanya, platformun gerçek kuralını duyurur —
           eşiğin üstünde teslimat ücretsiz. Rakam `pricing.ts`'ten gelir, iki
           yerde ayrı yazılmaz. */}
       {campaign && (
         <section className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 md:pt-20">
-          <div className="overflow-hidden rounded-xl border border-line bg-plum-950 md:grid md:grid-cols-[1.05fr_1fr]">
+          <div className="overflow-hidden rounded-[var(--radius-banner)] border border-line bg-plum-950 md:grid md:grid-cols-[1.05fr_1fr]">
             <div className="relative h-56 md:h-auto md:min-h-[21rem]">
               <ProductImage
                 src={campaign.imageUrl}
@@ -250,7 +410,7 @@ export default async function HomePage() {
               <p className="eyebrow text-bloom-300">Kampanya</p>
               <h2 className="mt-4 text-[clamp(1.6rem,3vw,2.4rem)] leading-[1.1] text-white">
                 {formatPriceShort(FREE_SHIPPING_THRESHOLD)} üzeri{" "}
-                <span className="italic text-bloom-200">teslimat bizden</span>.
+                <span className="text-bloom-200">teslimat bizden</span>.
               </h2>
               <p className="mt-4 max-w-sm text-[14.5px] leading-relaxed text-plum-200/80">
                 Sepet toplamın eşiği geçtiğinde teslimat ücreti düşer. Çiçek
@@ -306,7 +466,7 @@ export default async function HomePage() {
 
       {/* -------------------------------- Nasıl çalışır --------------------------- */}
       <section className="mx-auto mt-10 max-w-[1440px] px-4 sm:px-6 md:mt-20">
-        <div className="rounded-xl bg-plum-950 px-6 py-10 text-center sm:px-10 md:py-14">
+        <div className="rounded-[var(--radius-banner)] bg-plum-950 px-6 py-10 text-center sm:px-10 md:py-14">
           <p className="eyebrow text-plum-300">Sipariş verdikten sonra</p>
           <h2 className="mx-auto mt-4 max-w-lg text-[clamp(1.8rem,3.5vw,2.4rem)] leading-tight text-white">
             Üç adım, üç farklı kişi, tek ekran.

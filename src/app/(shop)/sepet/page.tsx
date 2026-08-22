@@ -7,8 +7,11 @@ import { FREE_SHIPPING_THRESHOLD, lineTotal } from "@/lib/pricing";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { ProductCard } from "@/components/site/ProductCard";
 import { CartLineControls } from "@/components/site/CartLineControls";
+import { AddOnPicker } from "@/components/site/AddOnPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
+import { priceInfo } from "@/lib/discount";
+import { ADDON_KIND_LABEL, type AddOnKind } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Sepetim" };
 
@@ -43,18 +46,34 @@ export default async function CartPage() {
     })
   ).map((product) => product.categoryId);
 
-  const suggestions = await db.product.findMany({
-    where: {
-      id: { notIn: cart.items.map((item) => item.productId) },
-      categoryId: { in: cartCategoryIds },
-      isActive: true,
-      stock: { gt: 0 },
-      seller: { status: "APPROVED" },
-    },
-    include: { seller: true },
-    orderBy: [{ isFeatured: "desc" }, { reviewCount: "desc" }],
-    take: 5,
-  });
+  const [suggestions, addOns] = await Promise.all([
+    db.product.findMany({
+      where: {
+        id: { notIn: cart.items.map((item) => item.productId) },
+        categoryId: { in: cartCategoryIds },
+        isActive: true,
+        isAddOn: false,
+        stock: { gt: 0 },
+        seller: { status: "APPROVED" },
+      },
+      include: { seller: true },
+      orderBy: [{ isFeatured: "desc" }, { reviewCount: "desc" }],
+      take: 5,
+    }),
+    // Sepette olmayan ek ürünler (madde 6).
+    db.product.findMany({
+      where: {
+        id: { notIn: cart.items.map((item) => item.productId) },
+        isAddOn: true,
+        isActive: true,
+        stockClosed: false,
+        stock: { gt: 0 },
+      },
+      include: { seller: true },
+      orderBy: { price: "asc" },
+      take: 8,
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6">
@@ -128,10 +147,25 @@ export default async function CartPage() {
                         </p>
                       </div>
 
-                      <p className="tabular text-[12px] text-muted">
-                        Birim {formatPrice(item.unitPrice)}
+                      <p className="tabular flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
+                        <span>Birim {formatPrice(item.unitPrice)}</span>
+                        {item.isDiscounted && (
+                          <>
+                            <span className="text-faint line-through">
+                              {formatPrice(item.listPrice)}
+                            </span>
+                            <span className="font-semibold text-bloom-700">
+                              indirimli
+                            </span>
+                          </>
+                        )}
+                        {item.isAddOn && (
+                          <span className="rounded-full bg-plum-50 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-plum-700">
+                            Ek ürün
+                          </span>
+                        )}
                         {item.stock <= 5 && (
-                          <span className="ml-2 text-bloom-700">
+                          <span className="text-bloom-700">
                             · stokta {item.stock} adet
                           </span>
                         )}
@@ -158,6 +192,13 @@ export default async function CartPage() {
 
             <dl className="mt-4 space-y-2.5 text-[13.5px]">
               <Line term="Ara toplam" value={formatPrice(cart.subtotal)} />
+              {cart.savings > 0 && (
+                <Line
+                  term="İndirim kazancın"
+                  value={`− ${formatPrice(cart.savings)}`}
+                  accent
+                />
+              )}
               <Line
                 term="Teslimat"
                 value={
@@ -197,6 +238,24 @@ export default async function CartPage() {
           </div>
         </aside>
       </div>
+
+      {addOns.length > 0 && (
+        <section className="mt-12 rounded-[var(--radius-banner-sm)] border border-line bg-surface p-5 sm:p-6">
+          <AddOnPicker
+            options={addOns.map((item) => ({
+              id: item.id,
+              name: item.name,
+              price: priceInfo(item).price,
+              imageUrl: item.imageUrl,
+              kindLabel:
+                ADDON_KIND_LABEL[(item.addOnKind ?? "KART") as AddOnKind],
+              storeName: item.seller.storeName,
+            }))}
+            title="Siparişine ek ürün ekle"
+            description="Çikolata, balon, pasta ya da vazo; çiçekle aynı pakette gider."
+          />
+        </section>
+      )}
 
       {suggestions.length > 0 && (
         <section className="mt-14">

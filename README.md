@@ -86,7 +86,7 @@ tek tıkla geçilir — sunum sırasında login/logout ile vakit kaybedilmesin d
 | **Müşteri** | Zeynep Aksoy | Menüde ayrıca Emre Çetin, Selin Yıldırım |
 | **Satıcı** | Serkan Yalçın — Gül Bahçesi Çiçekçilik (İstanbul, %12 komisyon) | Ayrıca Aylin Doğan — Menekşe Çiçek Evi (Ankara, %14), Deniz Kaya — Ege Orkide (İzmir, %11) |
 | **Kurye** | Murat Ilgaz | Ayrıca Hakan Yavuz, Serpil Kaya |
-| **Admin** | Nazlı Öztürk | Platform operasyonu |
+| **Admin** | Nazlı Öztürk — Operasyon Müdürü | Ayrıca Kerem Balcı — Bayi İlişkileri, Sibel Aksu — Finans. Üçü de kendi ismiyle girer; yaptıkları **İşlem kayıtları** ekranına düşer |
 
 Yanlış rolle bir panele girilirse ekran kırılmaz: ne olduğunu anlatan ve tek
 tıkla doğru role geçiren bir ara ekran çıkar.
@@ -95,26 +95,71 @@ tıkla doğru role geçiren bir ara ekran çıkar.
 
 ## Demo senaryosu (sunumun bel kemiği)
 
-Bu 9 adım uçtan uca test edilmiştir; hiçbir adımda hata, boş ekran veya kırık
-link yoktur.
+Bu 10 adım uçtan uca test edilmiştir (son test: 21 Ağustos 2026); hiçbir adımda
+hata, boş ekran veya kırık link yoktur.
 
-1. **Müşteri** ana sayfadan bir kategoriye girer, ürün seçer, sepete ekler.
-2. **Farklı bir çiçekçinin** ürününü de sepete ekler. Sepet, siparişin iki
-   mağazaya bölüneceğini açıkça gösterir.
-3. Ödeme adımı: alıcı adı/telefonu, teslimat adresi, teslimat tarihi ve saati,
-   **hediye notu**. Ardından sahte kart ekranı ve **3D Secure simülasyonu** —
-   burada bilinçli olarak *"Başarısız senaryoyu göster"* de seçilebilir; sipariş
-   kaybolmaz, tekrar denenebilir. Başarılı ödemede stok düşer.
-4. Sipariş takip sayfası: durum çubuğu, mağaza bazında kalemler, sipariş geçmişi.
-5. **Rol değiştir → Satıcı.** Yeni sipariş satıcı panelinde görünür (yalnızca
-   kendi kalemi ve kendi kazancı). Satıcı "Hazırlamaya başla" der.
-6. **Rol değiştir → Admin.** Sipariş tüm siparişlerde görünür; admin bir
+1. **Teslimat bölgesi.** Başlığın sağ üstündeki *"Nereye göndereceksin?"* →
+   İstanbul / Kadıköy / **Caferağa**. Katalog o mahalleye gönderilebilen ürünlere
+   daralır; başlıkta ve katalogda bölge yazar. (Bursa'yı seçmeyi de dene: o
+   şehrin bayisi hâlâ onay beklediği için mahalleler **kapalı** görünür.)
+2. **Ürün seçimi.** Bir ürüne gir: galeride üç fotoğraf ve **tanıtım videosu**,
+   indirimliyse **geri sayım** ve üstü çizili liste fiyatı. Sepete ekle.
+3. **Ek ürün.** Aynı sayfada *"Yanında ne gitsin?"* şeridinden bir çikolata veya
+   balon ekle. Ek ürün **Hediye Deposu**'ndan geldiği için sipariş kendiliğinden
+   çok satıcılı olur — sepet bunu açıkça söyler.
+4. **Ödeme adımı.** Alıcı bilgisi, **şehir → ilçe → mahalle**, tarih ve saat,
+   **hediye notu** ve *"Kartın altına gönderici ismi yazılsın"* kutucuğu
+   (işaretlenmezse kart imzasız gider). Ardından sahte kart ekranı ve **3D Secure
+   simülasyonu** — bilinçli olarak *"Başarısız senaryoyu göster"* de seçilebilir;
+   sipariş kaybolmaz, tekrar denenebilir. Başarılı ödemede stok düşer.
+5. **Sipariş takibi:** durum çubuğu, mağaza bazında kalemler, hediye notu ve
+   sipariş geçmişi.
+6. **Rol değiştir → Satıcı.** Sipariş listesi **bugünle** açılır ve yeni sipariş
+   oradadır. Satıcı "Hazırlamaya başla" der, **hazırlık onay görselini** yükler
+   (telefonda doğrudan kamera açılır), sonra **"Arabaya verildi"** işaretler.
+7. **Rol değiştir → Admin.** Sipariş tüm siparişlerde görünür; admin bir
    **kurye atar**. Sipariş detayında her satıcının komisyonu ayrı hesaplanır.
-7. **Rol değiştir → Kurye.** Teslimat listesinde sipariş görünür; kurye alım
-   noktalarını (iki ayrı çiçekçi) ve alıcı bilgisini görür, **"Teslim edildi"**
-   işaretler.
-8. **Rol değiştir → Müşteri.** Takip sayfasında durum "Teslim edildi".
-9. **Admin panosu:** ciro, sipariş sayısı ve son 7 gün grafiği güncel.
+8. **Rol değiştir → Kurye.** Sipariş **"İşlem gören teslimatlar"** listesindedir
+   (arabaya verilmemiş olsaydı "Çiçekçi hazırlığında" bölümünde beklerdi). Kurye
+   alıcı bilgisini görür ve **"Teslim edildi"** işaretler.
+9. **Rol değiştir → Müşteri.** Takip sayfasında durum "Teslim edildi" ve
+   çiçekçinin gönderdiği **hazırlık fotoğrafı** görünür.
+10. **Admin panosu:** ciro, sipariş sayısı ve son 7 gün grafiği güncel.
+
+### Gösterilebilecek diğer akışlar
+
+- **Finans ve raporlar** (`/admin/finans`): haftalık ciro, bayi hakedişleri,
+  bayilerin yüklediği faturaları onaylama, **ödemesi yarım kalan siparişe
+  hatırlatma gönderme**.
+- **Bayi künyesi** (`/admin/saticilar` → *Aç*): hizmet bölgelerini mahalle
+  mahalle açma, sipariş alımını durdurma, gün/sipariş kotası, hizmet puanı ve
+  **"Gecikmeleri tara"** (geciken siparişlere otomatik −5 puan).
+- **İşlem kayıtları** (`/admin/kayitlar`): hangi admin neyi değiştirmiş.
+- **Satıcı faturaları** (`/satici/faturalar`): bayi kendi komisyon faturasını
+  yükler, finans ekranında karşılığı anında görünür.
+- **Satıcı ürünleri** (`/satici/urunler`): bayi ürüne dokunamaz, yalnızca
+  **stoğu kapatır**; kapattığı ürün vitrinde "satışa kapalı" olur.
+
+---
+
+## 21 Ağustos 2026 eklentileri
+
+Müşteriden gelen 25 maddelik liste bu sürümde uygulandı (biri müşteri isteğiyle
+iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başlıklar:
+
+| Alan | Ne geldi |
+| --- | --- |
+| **Teslimat bölgesi** | Şehir → ilçe → mahalle seçimi; katalog ve ödeme adımı seçilen bölgeye göre daralır. Bayi ↔ mahalle eşleşmesini operasyon açar. |
+| **Ek ürünler** | Çikolata, balon, pasta, vazo, kart, oyuncak — ayrı bir tedarikçiden (Hediye Deposu), ürün sayfasında ve sepette. |
+| **Zamanlı indirim** | Başlangıç/bitiş saatli indirim, ana sayfada geri sayım, "haftanın ürünü" bandı. |
+| **Ürün galerisi** | Her üründe en az üç fotoğraf, seçili ürünlerde tanıtım videosu. |
+| **Hazırlık onay görseli** | Çiçekçi buketin fotoğrafını yükler, müşteri takip ekranında görür. |
+| **Gönderici ismi** | Kart notunun altına imza — istenmezse kutucuk kapalı kalır. |
+| **Fatura akışı** | Bayi yükler, finans onaylar; iki panelde de durum görünür. |
+| **Bayi yönetimi** | Sipariş alımını durdurma, gün/sipariş kotası, hizmet puanı (gecikmede otomatik −5), sorumlu kişi ataması. |
+| **Arabaya verildi** | Sipariş araca verilene kadar kuryenin "işlem gören" listesine düşmez. |
+| **Üç admin + denetim izi** | Üç kişi kendi ismiyle girer; her yetki değişikliği kim yaptıysa onun adıyla kaydedilir. |
+| **Görünüm** | Outfit başlık yüzü, yuvarlak ana sayfa afişleri, logo sol / arama orta / sepet sağ, üstte koleksiyon şeridi, tanıdık e-ticaret ürün kartı. |
 
 ---
 
@@ -124,13 +169,14 @@ link yoktur.
 
 | Yol | Ekran |
 | --- | --- |
-| `/` | Ana sayfa: öne çıkanlar, kategoriler, platformdaki çiçekçiler |
-| `/urunler` | Katalog: kategori/satıcı/fiyat filtresi, sıralama |
+| `/` | Ana sayfa: haftanın ürünü, indirimdekiler, öne çıkanlar, kategoriler, çiçekçiler |
+| `/teslimat-bolgesi` | Şehir → ilçe → mahalle seçimi; katalog buna göre daralır |
+| `/urunler` | Katalog: koleksiyon, kategori, satıcı, fiyat filtresi ve sıralama |
 | `/kategori/[slug]` | Kategori listesi |
 | `/magaza/[slug]` | Mağaza vitrini |
-| `/urun/[slug]` | Ürün detayı |
-| `/sepet` | Sepet — mağazaya göre gruplu |
-| `/odeme` | Teslimat bilgileri + hediye notu |
+| `/urun/[slug]` | Ürün detayı: galeri (3+ fotoğraf, video), indirim geri sayımı, ek ürünler |
+| `/sepet` | Sepet — mağazaya göre gruplu, ek ürün şeridi |
+| `/odeme` | Teslimat bilgileri, şehir/ilçe/mahalle, hediye notu + gönderici ismi |
 | `/odeme/[siparisNo]` | Sahte kart ekranı + 3D Secure simülasyonu |
 | `/siparis/[siparisNo]` | Sipariş takibi |
 | `/hesabim`, `/hesabim/adresler` | Sipariş geçmişi, adresler |
@@ -139,18 +185,22 @@ link yoktur.
 
 | Yol | Ekran |
 | --- | --- |
-| `/satici` | Genel bakış: bugünkü sipariş, bekleyen, kazanç, düşük stok |
-| `/satici/urunler` | Ürünlerim: ekle/düzenle/sil, satır içi stok güncelleme |
-| `/satici/siparisler` | Yalnızca kendi kalemleri, durum ilerletme |
+| `/satici` | Genel bakış: sipariş, kazanç, **sorumlu kişi**, **kota**, **hizmet puanı** |
+| `/satici/urunler` | Ürünlerim — okunur; tek yetki **stoğu kapat/aç** |
+| `/satici/siparisler` | Kendi kalemleri; **teslimat tarihine göre**, bugünle açılır |
 | `/satici/kazanc` | Komisyon düşülmüş kazanç dökümü |
-| `/kurye` | Atanan teslimatlar |
+| `/satici/faturalar` | Fatura yükleme ve inceleme durumu |
+| `/kurye` | Atanan teslimatlar: **işlem gören** ve **çiçekçi hazırlığında** |
 | `/kurye/[siparisNo]` | Teslimat detayı: alım noktaları, alıcı, teslim onayı |
 | `/kurye/gecmis` | Tamamlanan teslimatlar |
 | `/admin` | Ciro, sipariş, aktif satıcı, son 7 gün grafiği |
 | `/admin/basvurular` | Satıcı başvuruları: onayla / reddet |
-| `/admin/saticilar` | Satıcı yönetimi, komisyon oranı düzenleme |
+| `/admin/saticilar` | Satıcı yönetimi, komisyon oranı, puan, bölge sayısı |
+| `/admin/saticilar/[id]` | Bayi künyesi: **hizmet bölgeleri**, sipariş alımı, kota, puan, sorumlu |
 | `/admin/siparisler` | Tüm siparişler, filtre, kurye atama |
-| `/admin/urunler` | Tüm ürünler, yayından kaldırma |
+| `/admin/urunler` | Tüm ürünler; **ürün ekleme/düzenleme burada** (galeri, indirim) |
+| `/admin/finans` | Finans ve raporlar: hakedişler, faturalar, yarım kalan ödemeler |
+| `/admin/kayitlar` | İşlem kayıtları (denetim izi) |
 | `/mobil-onizleme` | Müşteri arayüzü telefon çerçevesi içinde |
 
 ---
@@ -160,12 +210,21 @@ link yoktur.
 `npm run seed` her çalıştığında veriyi siler ve **aynı** içeriği yeniden kurar
 (sabit tohumlu üreteç) — sunum yapan kişi ekranda sürprizle karşılaşmaz.
 
-- **24 kullanıcı:** 14 müşteri, 6 satıcı, 3 kurye, 1 admin
-- **6 mağaza:** İstanbul, Ankara, İzmir, Kayseri şehirlerinde 4 onaylı;
-  Antalya ve Bursa'dan 2 mağaza **onay bekliyor** (admin başvuru ekranı dolu görünsün)
-- **10 kategori**, **61 ürün** (249–4.450 TL, birkaç ürün bilinçli olarak stokta az)
-- **38 sipariş**, son 30 güne yayılmış, tüm durumlara dağılmış; bir kısmı
-  **çok satıcılı**
+- **27 kullanıcı:** 14 müşteri, 7 satıcı, 3 kurye, **3 admin**
+- **7 mağaza:** İstanbul, Ankara, İzmir, Kayseri'de 4 çiçekçi + ek ürünleri
+  gönderen **Hediye Deposu** onaylı; Antalya ve Bursa'dan 2 mağaza **onay
+  bekliyor** (admin başvuru ekranı dolu görünsün, Bursa mahalleleri kapalı kalsın)
+- **11 kategori** (biri gizli: *Hediye Ekleri*), **70 ürün** — 61 çiçek +
+  **9 ek ürün**; birkaç ürün bilinçli olarak stokta az
+- **55 mahalle** ve bayi ↔ mahalle eşleşmeleri; her bayi kendi şehrinin bir
+  bölümüne hizmet verir, Hediye Deposu her yere kargolar
+- **8 zamanlı indirim** (biri gelecek tarihli, yani "planlandı") ve bir
+  **haftanın ürünü**
+- Her üründe **en az 3 galeri görseli**; 4 üründe `public/video/` altında
+  tanıtım videosu
+- **38 sipariş**, son 30 güne yayılmış, tüm durumlara dağılmış; büyük bölümü
+  **çok satıcılı** (çiçek + hediye eki)
+- **10 fatura**, **7 denetim kaydı**, bayi puan hareketleri
 
 ---
 
@@ -183,6 +242,11 @@ Veri erişimi sunucu bileşenlerinde, değişiklikler sunucu eylemlerinde.
 | `src/lib/orders.ts` | Sipariş oluşturma, ödeme sonucu, durum ilerletme, olay kaydı |
 | `src/lib/cart.ts` | Çerez tabanlı sepet ve mağazaya göre gruplama |
 | `src/lib/auth.ts` | Demo oturumu ve rol değiştirici hesapları |
+| `src/lib/discount.ts` | **Zamanlı indirim.** Geçerli fiyatı hesaplayan tek yer |
+| `src/lib/delivery-area.ts` | Teslimat bölgesi: seçim, ağaç, bayi eşleşmesi filtresi |
+| `src/lib/collections.ts` | Üst şeritteki koleksiyonlar (Premium, Hediye, Balon…) |
+| `src/lib/seller-score.ts` | Bayi puanı ve otomatik gecikme cezası |
+| `src/lib/audit.ts` | Denetim izi — admin eylemlerinin kaydı |
 
 Ortak arayüz bileşenleri (`button`, `input`, `card`, `badge`, tablo) müşteri
 tarafı ile paneller arasında paylaşılır; renk ve tipografi `globals.css`'te
@@ -203,10 +267,14 @@ kağıdı, koyu patlıcan moru sargı ve tek bir doygun ahududu aksanı.
 | Kıtlık ve puan (`gold`) | `#cf9128` — **yalnızca** stok uyarısı ve puan |
 | Olumlu durum (`fern`) | `#3f6b4e` — **yalnızca** teslim edildi |
 
-**Tipografi.** Başlıklarda **Bodoni Moda** (yüksek kontrastlı didone; hediye
-kartının kibarlığını taşır), gövdede **Manrope**, veri ve etiketlerde
-**JetBrains Mono**. Didone yalnızca iri puntoda kullanılır: panel rakamları ve
-tablo tutarları gövde yüzünde kalır, çünkü orada okunurluk süsten önce gelir.
+**Tipografi.** Başlıklarda **Outfit** (geometrik, açık gözlü sans), gövdede
+**Manrope**, veri ve etiketlerde **JetBrains Mono**.
+
+> 21 Ağustos 2026'da müşteri isteğiyle başlık yüzü değişti: önceki **Bodoni
+> Moda** iri puntoda güzel duruyordu ama 16–18 px'te tırnakları dağılıyor,
+> panel başlıkları zor okunuyordu. Outfit her ölçekte net. Didone tamamen
+> atılmadı: **hediye notu** kartında italik olarak kaldı (`--font-note`) —
+> markanın imza öğesi orası, el yazısı hissini o taşıyor.
 
 **Ürün fotoğrafı tam karedir.** Kart, ürün detayı, sepet, ödeme özeti ve panel
 tablolarında aynı 1:1 çerçeve kullanılır — tanıdık e-ticaret ızgarası.
@@ -303,8 +371,19 @@ durabiliyordu; oysa sayfanın ilk görülen yeri orası. Ürün yayından kalkar
 Küçük kararlar demo'nun amacına göre verildi; önemli olanlar:
 
 - **Çok satıcılı sipariş durumu kalemlerden türetilir.** Siparişin durumunu en
-  geride kalan kalem belirler: iki satıcılı bir siparişte biri hazırlamayı
+  geride kalan kalem belirler: iki çiçekçili bir siparişte biri hazırlamayı
   bitirse bile sipariş, diğeri de bitirene kadar "Hazırlanıyor" kalır.
+  **Ek ürünler (çikolata, balon) bu hesaba girmez** — çiçekle aynı pakete
+  konduğu için paketi hazırlayan bayiyle birlikte ilerlerler.
+- **Satıcı ürüne dokunamaz, yalnızca stoğunu kapatır** (müşteri isteği, 21 Ağu
+  2026). Ürün adı, fiyatı, görseli, galerisi ve indirimi operasyon ekibindedir;
+  böylece vitrindeki fiyat tek elden kontrol edilir. Bayi kendi panelinde
+  sorumlusunun adını ve numarasını görür.
+- **Teslimat bölgesi seçimi zorunlu değildir.** Seçilmezse katalog daralmaz;
+  seçilince yalnızca o mahalleye gönderilebilen ürünler listelenir ve ödeme
+  adımında hizmet vermeyen mağaza adıyla birlikte uyarı verir. Onay bekleyen
+  bayinin şehri (Bursa, Antalya) bilinçli olarak **kapalı** görünür — admin o
+  bayiyi onayladığında şehir açılır.
 - **Komisyon kalem bazında ve sipariş anındaki oranla** yazılır. Admin bir
   satıcının oranını sonradan değiştirirse geçmiş siparişler etkilenmez.
 - **Kurye siparişe atanır, kaleme değil.** Çok satıcılı siparişte kurye, birden
@@ -319,17 +398,26 @@ Küçük kararlar demo'nun amacına göre verildi; önemli olanlar:
   genişliğinde çalışan hâli. Çerçevenin içinde demo şeridi gizlenir ki ekran
   "uygulama" gibi görünsün. Sayfada bunun bir önizleme olduğu not edilir.
 - **Sepet çerezde tutulur**; seed yeniden çalıştığında tarayıcıda kalan eski
-  sepet sessizce boşalır, rozette hayalet sayı bırakmaz.
+  sepet sessizce boşalır, rozette hayalet sayı bırakmaz. Teslimat bölgesi de
+  aynı şekilde çerezdedir.
+- **İndirim bir zaman aralığıdır.** İndirimli fiyat yalnızca aralık içinde
+  geçerlidir; aralık başlamadıysa panelde "planlandı" görünür, bitince fiyat
+  kendiliğinden liste fiyatına döner. Sepete giren tutar da bu hesaptan gelir.
+- **Dosya yükleme demo ölçeğindedir.** Hazırlık fotoğrafı tarayıcıda 900 px'e
+  küçültülüp veritabanında saklanır (sunucuda görsel işleme yok — Render free
+  plan 512 MB). Faturada PDF'in kendisi saklanmaz; adı, türü, boyutu kaydedilir,
+  görsel yüklenirse küçültülmüş önizlemesi tutulur. Gerçek sistemde burada bir
+  nesne deposu (S3/Blob) olur.
 
 ---
 
 ## Kapsam dışı
 
 Bilinçli olarak yapılmadı: gerçek ödeme entegrasyonu (iyzico/PayTR), kargo
-API'si, e-fatura, SMS/e-posta gönderimi, gerçek kimlik doğrulama ve şifre
-saklama, KVKK/yasal metinler, çok dillilik, erişilebilirlik denetimi, dosya
-yükleme, Docker/CI/CD/deployment, test suite, canlı GPS takibi ve ayrı bir
-React Native uygulaması.
+API'si, e-fatura, SMS/e-posta gönderimi (ödeme hatırlatması yalnızca kayda
+geçer), gerçek kimlik doğrulama ve şifre saklama, KVKK/yasal metinler, çok
+dillilik, erişilebilirlik denetimi, **gerçek dosya deposu**, Docker/CI/CD/
+deployment, test suite, canlı GPS takibi ve ayrı bir React Native uygulaması.
 
 Kod okunabilir ve modüler tutuldu; bu demo gerçek projenin başlangıç noktası
 olarak kullanılabilir.

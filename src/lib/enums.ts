@@ -109,3 +109,39 @@ export const DELIVERY_SLOTS = [
   "15:00 - 18:00",
   "18:00 - 21:00",
 ] as const;
+
+/* ------------------------------- Ek ürünler ------------------------------- */
+/* Çiçeğin yanına eklenen ürünler. Katalogda tek başına listelenmezler. */
+
+export const ADDON_KINDS = [
+  "CIKOLATA",
+  "BALON",
+  "PASTA",
+  "VAZO",
+  "KART",
+  "OYUNCAK",
+] as const;
+export type AddOnKind = (typeof ADDON_KINDS)[number];
+
+export const ADDON_KIND_LABEL: Record<AddOnKind, string> = {
+  CIKOLATA: "Çikolata",
+  BALON: "Balon",
+  PASTA: "Pasta",
+  VAZO: "Vazo",
+  KART: "Kart",
+  OYUNCAK: "Oyuncak",
+};
+
+/* -------------------------------- Fatura ---------------------------------- */
+
+export const INVOICE_STATUSES = ["BEKLIYOR", "ONAYLANDI", "REDDEDILDI"] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export const INVOICE_STATUS_META: Record<
+  InvoiceStatus,
+  { label: string; tone: Tone }
+> = {
+  BEKLIYOR: { label: "İnceleniyor", tone: "amber" },
+  ONAYLANDI: { label: "Onaylandı", tone: "leaf" },
+  REDDEDILDI: { label: "Reddedildi", tone: "danger" },
+};

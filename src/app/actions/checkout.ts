@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCartDetail, writeCart } from "@/lib/cart";
 import { createOrderFromCart, settlePayment } from "@/lib/orders";
 import { DELIVERY_SLOTS } from "@/lib/enums";
+import { db } from "@/lib/db";
 
 export type CheckoutState = {
   errors?: Record<string, string>;
@@ -36,18 +37,23 @@ export async function placeOrder(
   const recipientName = required(formData.get("recipientName"));
   const recipientPhone = required(formData.get("recipientPhone"));
   const deliveryCity = required(formData.get("deliveryCity"));
+  const deliveryDistrict = required(formData.get("deliveryDistrict"));
+  const neighborhoodId = required(formData.get("neighborhoodId"));
   const deliveryAddress = required(formData.get("deliveryAddress"));
   const deliveryDateRaw = required(formData.get("deliveryDate"));
   const deliverySlot = required(formData.get("deliverySlot"));
   const giftNote = required(formData.get("giftNote"));
+  const senderName = required(formData.get("senderName"));
 
   const errors: Record<string, string> = {};
   if (recipientName.length < 3) errors.recipientName = "Alıcının adını yaz.";
   if (recipientPhone.replace(/\D/g, "").length < 10)
     errors.recipientPhone = "Geçerli bir telefon numarası gir.";
   if (!deliveryCity) errors.deliveryCity = "Teslimat şehrini seç.";
-  if (deliveryAddress.length < 10)
-    errors.deliveryAddress = "Adresi mahalle ve kapı numarasıyla birlikte yaz.";
+  if (!deliveryDistrict) errors.deliveryDistrict = "İlçe seç.";
+  if (!neighborhoodId) errors.neighborhoodId = "Teslimat mahallesini seç.";
+  if (deliveryAddress.length < 8)
+    errors.deliveryAddress = "Adresi cadde ve kapı numarasıyla birlikte yaz.";
   if (!deliveryDateRaw) errors.deliveryDate = "Teslimat tarihi seç.";
   if (!DELIVERY_SLOTS.includes(deliverySlot as (typeof DELIVERY_SLOTS)[number]))
     errors.deliverySlot = "Teslimat saati seç.";
@@ -56,14 +62,39 @@ export async function placeOrder(
     return { errors, message: "Eksik alanlar var, aşağıda işaretledik." };
   }
 
+  // Her ürün her mahalleye gönderilemez (madde 12): sepetteki her mağazanın
+  // seçilen mahalleye hizmet vermesi gerekir. Vermeyeni adıyla söyleriz ki
+  // müşteri ne yapacağını bilsin.
+  const serving = await db.sellerArea.findMany({
+    where: {
+      neighborhoodId,
+      sellerId: { in: [...new Set(cart.items.map((item) => item.sellerId))] },
+    },
+    select: { sellerId: true },
+  });
+  const servingIds = new Set(serving.map((row) => row.sellerId));
+  const blocked = cart.groups.filter((group) => !servingIds.has(group.sellerId));
+
+  if (blocked.length > 0) {
+    const names = blocked.map((group) => group.storeName).join(", ");
+    return {
+      errors: { neighborhoodId: "Bu mahalleye gönderim yapılamıyor." },
+      message: `${names} seçtiğin mahalleye teslimat yapmıyor. Başka bir mahalle seç ya da bu mağazanın ürünlerini sepetten çıkar.`,
+    };
+  }
+
   const order = await createOrderFromCart(
     {
       customerId: user.id,
       recipientName,
       recipientPhone,
       deliveryCity,
+      deliveryDistrict: deliveryDistrict || null,
+      neighborhoodId: neighborhoodId || null,
       deliveryAddress,
       giftNote: giftNote || null,
+      // Kutucuk işaretlenmediyse gönderici adı gitmez — kart imzasız kalır.
+      senderName: giftNote ? senderName || null : null,
       deliveryDate: new Date(`${deliveryDateRaw}T12:00:00`),
       deliverySlot,
     },

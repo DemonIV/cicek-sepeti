@@ -66,7 +66,9 @@ export const getDemoAccounts = cache(async () => {
     CUSTOMER: users.filter((u) => u.role === "CUSTOMER").slice(0, 3),
     SELLER: approvedSellers.slice(0, 3),
     COURIER: users.filter((u) => u.role === "COURIER").slice(0, 3),
-    ADMIN: users.filter((u) => u.role === "ADMIN").slice(0, 1),
+    // Üç admin de kendi ismiyle girer; kim neyi değiştirmiş denetim izinde
+    // görünür (madde 20).
+    ADMIN: users.filter((u) => u.role === "ADMIN").slice(0, 3),
   } satisfies Record<Role, unknown[]>;
 });
 

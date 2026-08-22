@@ -1,9 +1,13 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/site/ProductCard";
 import { CatalogFilters, SortSelect } from "@/components/site/CatalogFilters";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Icon } from "@/components/ui/Icon";
+import { findCollection } from "@/lib/collections";
+import { areaFilter, getSelectedArea, areaLabel } from "@/lib/delivery-area";
 
 export const metadata: Metadata = { title: "Tüm ürünler" };
 
@@ -23,6 +27,11 @@ export default async function CatalogPage({
   const sellerSlug = first(params.satici) ?? "";
   const maxPrice = Number(first(params.maxFiyat)) || 0;
   const sort = first(params.sirala) ?? "onerilen";
+  const collection = findCollection(first(params.koleksiyon));
+
+  const now = new Date();
+  // Bölge seçiliyse yalnızca oraya gönderilebilen ürünler listelenir (madde 12).
+  const [area, byArea] = await Promise.all([getSelectedArea(), areaFilter()]);
 
   const orderBy =
     sort === "fiyat-artan"
@@ -33,11 +42,21 @@ export default async function CatalogPage({
           ? [{ createdAt: "desc" as const }]
           : [{ isFeatured: "desc" as const }, { reviewCount: "desc" as const }];
 
+  // Ek ürünler katalogda tek başına listelenmez; yalnızca onları isteyen
+  // koleksiyonlarda ve aramada görünürler (madde 6).
+  const showAddOns = collection?.includeAddOns || Boolean(q);
+
   const where = {
     isActive: true,
-    seller: { status: "APPROVED", ...(sellerSlug ? { slug: sellerSlug } : {}) },
+    ...(showAddOns ? {} : { isAddOn: false }),
+    seller: {
+      status: "APPROVED",
+      ...(sellerSlug ? { slug: sellerSlug } : {}),
+      ...(byArea.seller ?? {}),
+    },
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
     ...(maxPrice ? { price: { lte: maxPrice } } : {}),
+    ...(collection ? collection.where(now) : {}),
     ...(q
       ? {
           OR: [{ name: { contains: q } }, { description: { contains: q } }],
@@ -47,27 +66,40 @@ export default async function CatalogPage({
 
   const [products, categories, sellers, bounds] = await Promise.all([
     db.product.findMany({ where, include: { seller: true }, orderBy }),
+    // Kenar çubuğundaki sayılar da bölgeyi izler: seçili mahalleye gönderim
+    // yapmayan bir satıcı listede durup boş sonuç vermemeli.
     db.category.findMany({
+      where: { isHidden: false },
       orderBy: { sortOrder: "asc" },
       include: {
         _count: {
           select: {
             products: {
-              where: { isActive: true, seller: { status: "APPROVED" } },
+              where: {
+                isActive: true,
+                isAddOn: false,
+                seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
+              },
             },
           },
         },
       },
     }),
     db.seller.findMany({
-      where: { status: "APPROVED" },
+      where: { status: "APPROVED", ...(byArea.seller ?? {}) },
       orderBy: { storeName: "asc" },
       include: {
-        _count: { select: { products: { where: { isActive: true } } } },
+        _count: {
+          select: { products: { where: { isActive: true, isAddOn: false } } },
+        },
       },
     }),
     db.product.aggregate({
-      where: { isActive: true, seller: { status: "APPROVED" } },
+      where: {
+        isActive: true,
+        isAddOn: false,
+        seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
+      },
       _min: { price: true },
       _max: { price: true },
     }),
@@ -109,14 +141,31 @@ export default async function CatalogPage({
         <h1 className="mt-2.5 text-[1.75rem] leading-tight md:text-[2rem]">
           {q
             ? `“${q}” için sonuçlar`
-            : (activeCategory?.name ??
+            : (collection?.label ??
+              activeCategory?.name ??
               activeSeller?.storeName ??
               "Tüm ürünler")}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Onaylı çiçekçilerin vitrindeki ürünleri. Fiyat, kategori ve satıcıya
-          göre daraltabilirsin.
+          {collection?.tagline ??
+            "Onaylı çiçekçilerin vitrindeki ürünleri. Fiyat, kategori ve satıcıya göre daraltabilirsin."}
         </p>
+
+        {area && (
+          <p className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full bg-bloom-50 px-3 py-1.5 text-[12.5px]">
+            <Icon name="pin" size={13} className="text-bloom-600" />
+            <span className="font-semibold text-plum-950">
+              {areaLabel(area)}
+            </span>
+            <span className="text-muted">bölgesine gönderilebilenler</span>
+            <Link
+              href="/teslimat-bolgesi"
+              className="link-underline font-semibold text-bloom-700"
+            >
+              değiştir
+            </Link>
+          </p>
+        )}
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[15rem_1fr]">
@@ -146,8 +195,16 @@ export default async function CatalogPage({
           {products.length === 0 ? (
             <EmptyState
               title="Aradığın kriterlere uyan ürün yok"
-              description="Filtreleri gevşetmeyi ya da farklı bir kelimeyle aramayı dene."
-              action={{ href: "/urunler", label: "Filtreleri temizle" }}
+              description={
+                area
+                  ? `${areaLabel(area)} bölgesine gönderilebilen ürünler arasında eşleşme çıkmadı. Filtreleri gevşetebilir ya da başka bir bölge seçebilirsin.`
+                  : "Filtreleri gevşetmeyi ya da farklı bir kelimeyle aramayı dene."
+              }
+              action={
+                area
+                  ? { href: "/teslimat-bolgesi", label: "Bölgeyi değiştir" }
+                  : { href: "/urunler", label: "Filtreleri temizle" }
+              }
             />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5">

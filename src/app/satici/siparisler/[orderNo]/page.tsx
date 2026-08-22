@@ -22,6 +22,7 @@ import {
 } from "@/lib/pricing";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { SellerOrderActions } from "@/components/panel/SellerOrderActions";
+import { PrepPhotoUpload } from "@/components/panel/PrepPhotoUpload";
 import {
   OrderStatusBadge,
   DeliveryStatusBadge,
@@ -58,6 +59,7 @@ export default async function SellerOrderDetail({
       delivery: { include: { courier: true } },
       customer: true,
       events: { orderBy: { createdAt: "desc" }, take: 6 },
+      prepPhotos: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -71,6 +73,15 @@ export default async function SellerOrderDetail({
   const ownStatus = deriveOrderStatus(own.map((i) => i.status as OrderStatus));
   const actions =
     order.paymentStatus === "ODENDI" ? allowedActions("SELLER", ownStatus) : [];
+
+  // Ana ürün ile ek ürün (çikolata, balon…) ayrı gösterilir — madde 6.
+  const ownMain = own.filter((item) => !item.isAddOn);
+  const ownAddOns = own.filter((item) => item.isAddOn);
+  const myPhotos = order.prepPhotos.filter(
+    (photo) => photo.sellerId === seller.id,
+  );
+  const canDispatch =
+    ownStatus === "HAZIRLANIYOR" && order.paymentStatus === "ODENDI";
 
   return (
     <>
@@ -102,7 +113,13 @@ export default async function SellerOrderDetail({
               Kalemlerini hazırladıkça durumu güncelle; müşteri anında görür.
             </p>
           </div>
-          <SellerOrderActions orderId={order.id} actions={actions} size="lg" />
+          <SellerOrderActions
+            orderId={order.id}
+            actions={actions}
+            canDispatch={canDispatch}
+            dispatched={Boolean(order.delivery?.dispatchedAt)}
+            size="lg"
+          />
         </div>
       )}
 
@@ -142,8 +159,15 @@ export default async function SellerOrderDetail({
                               sizes="44px"
                             />
                           </div>
-                          <span className="font-medium">
-                            {item.productName}
+                          <span className="min-w-0">
+                            <span className="block font-medium">
+                              {item.productName}
+                            </span>
+                            {item.isAddOn && (
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-plum-500">
+                                Ek ürün
+                              </span>
+                            )}
                           </span>
                         </div>
                       </td>
@@ -187,6 +211,42 @@ export default async function SellerOrderDetail({
             </div>
           </section>
 
+          {ownAddOns.length > 0 && (
+            <section className="rounded-lg border border-line bg-plum-50/60 px-4 py-3.5">
+              <p className="flex items-center gap-2 text-[13px] font-medium text-plum-900">
+                <Icon name="package" size={15} className="text-plum-400" />
+                Bu siparişte {ownAddOns.length} ek ürün var
+              </p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+                {ownAddOns.map((item) => item.productName).join(", ")} — çiçekle
+                aynı pakete koyulacak.
+              </p>
+            </section>
+          )}
+
+          {/* Hazırlık onay görselleri (madde 22) */}
+          {myPhotos.length > 0 && (
+            <section className="card card-pad">
+              <h2 className="text-[15px] font-semibold">Gönderdiğin görseller</h2>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {myPhotos.map((photo) => (
+                  <figure key={photo.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.imageUrl}
+                      alt="Hazırlık onay görseli"
+                      className="aspect-square w-full rounded-lg border border-line object-cover"
+                    />
+                    <figcaption className="mt-1.5 text-[11.5px] leading-snug text-muted">
+                      {formatDateTime(photo.createdAt)}
+                      {photo.note ? ` · ${photo.note}` : ""}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          )}
+
           {others.length > 0 && (
             <section className="rounded-lg border border-dashed border-line-strong bg-surface/60 px-4 py-3.5">
               <p className="flex items-center gap-2 text-[13px] font-medium text-plum-900">
@@ -194,8 +254,9 @@ export default async function SellerOrderDetail({
                 Bu siparişte başka satıcıların {others.length} kalemi daha var
               </p>
               <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-                Onların ürün ve tutar bilgileri sana kapalıdır. Sipariş, tüm
-                satıcılar kendi kalemini tamamlayınca bir sonraki aşamaya geçer.
+                Onların ürün ve tutar bilgileri sana kapalıdır. Siparişin
+                durumunu çiçeği hazırlayan bayiler belirler; hediye ekleri
+                (çikolata, balon) paketle birlikte ilerler.
               </p>
             </section>
           )}
@@ -235,7 +296,9 @@ export default async function SellerOrderDetail({
                 <dt className="text-[12px] text-muted">Adres</dt>
                 <dd className="leading-snug">{order.deliveryAddress}</dd>
                 <dd className="text-[12.5px] text-muted">
-                  {order.deliveryCity}
+                  {order.deliveryDistrict
+                    ? `${order.deliveryDistrict}, ${order.deliveryCity}`
+                    : order.deliveryCity}
                 </dd>
               </div>
               <div>
@@ -263,12 +326,21 @@ export default async function SellerOrderDetail({
             </dl>
           </div>
 
+          {order.status !== "IPTAL" && order.paymentStatus === "ODENDI" && (
+            <PrepPhotoUpload orderId={order.id} />
+          )}
+
           {order.giftNote ? (
             <div className="px-2 py-1">
               <GiftNoteCard
                 text={order.giftNote}
-                from={`${order.customer.name}'den`}
+                from={order.senderName ? `${order.senderName}` : null}
               />
+              {!order.senderName && (
+                <p className="mt-3 px-1 text-[11.5px] text-muted">
+                  Müşteri gönderici ismi istemedi — kartı imzasız bırak.
+                </p>
+              )}
               <p className="mt-4 px-1 text-[11.5px] leading-relaxed text-muted">
                 Bu metni karta el yazısıyla geçirip buketle birlikte gönder.
               </p>

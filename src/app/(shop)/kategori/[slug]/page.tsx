@@ -25,7 +25,7 @@ export default async function CategoryPage({ params }: { params: Params }) {
     where: { slug },
     include: {
       products: {
-        where: { isActive: true, seller: { status: "APPROVED" } },
+        where: { isActive: true, isAddOn: false, seller: { status: "APPROVED" } },
         include: { seller: true },
         orderBy: [{ isFeatured: "desc" }, { reviewCount: "desc" }],
       },
@@ -35,7 +35,7 @@ export default async function CategoryPage({ params }: { params: Params }) {
   if (!category) notFound();
 
   const others = await db.category.findMany({
-    where: { slug: { not: slug } },
+    where: { slug: { not: slug }, isHidden: false },
     orderBy: { sortOrder: "asc" },
   });
 

@@ -44,6 +44,10 @@ export default async function OrderTrackingPage({
       delivery: { include: { courier: true } },
       events: { orderBy: { createdAt: "asc" } },
       customer: true,
+      prepPhotos: {
+        include: { seller: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -90,6 +94,31 @@ export default async function OrderTrackingPage({
         </div>
       )}
 
+      {order.paymentStatus !== "ODENDI" && order.status !== "IPTAL" && (
+        <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-[#eed9ae] bg-gold-100 px-5 py-4">
+          <span className="grid size-8 flex-none place-items-center rounded-full bg-gold-500 text-white">
+            <Icon name="bell" size={16} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-gold-700">
+              Bu siparişin ödemesi tamamlanmadı.
+            </p>
+            <p className="mt-0.5 text-[13px] text-gold-700/85">
+              {order.reminderCount > 0
+                ? `Sana ${order.reminderCount} hatırlatma gönderdik. Çiçekler ödeme alınana kadar hazırlanmaya başlamaz.`
+                : "Çiçekler ödeme alınana kadar hazırlanmaya başlamaz."}
+            </p>
+          </div>
+          <Link
+            href={`/odeme/${order.orderNo}`}
+            className="btn btn-primary btn-sm"
+          >
+            Ödemeyi tamamla
+            <Icon name="arrow-right" size={15} />
+          </Link>
+        </div>
+      )}
+
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">Sipariş takibi</p>
@@ -110,11 +139,44 @@ export default async function OrderTrackingPage({
 
       <div className="grid gap-8 lg:grid-cols-[1fr_23rem]">
         <div className="space-y-6">
+          {order.prepPhotos.length > 0 && (
+            <section className="card card-pad">
+              <div className="flex items-center gap-2.5">
+                <Icon name="camera" size={17} className="text-bloom-600" />
+                <h2 className="text-base font-semibold">
+                  Çiçekçinden hazırlık görseli
+                </h2>
+              </div>
+              <p className="mt-1 text-[13px] text-muted">
+                Siparişin hazırlandığında çekilen kare. Gönderdiğin buketi
+                yola çıkmadan önce görebilirsin.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {order.prepPhotos.map((photo) => (
+                  <figure key={photo.id}>
+                    {/* Veri URL'i olabilir; next/image yerine düz img. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.imageUrl}
+                      alt="Hazırlanan siparişin fotoğrafı"
+                      className="aspect-square w-full rounded-lg border border-line object-cover"
+                    />
+                    <figcaption className="mt-1.5 text-[11.5px] leading-snug text-muted">
+                      {photo.seller.storeName}
+                      {photo.note ? ` · ${photo.note}` : ""}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          )}
+
           {groups.length > 1 && (
             <p className="rounded-lg border border-plum-200 bg-plum-50 px-4 py-3 text-[13px] leading-relaxed text-plum-800">
-              Bu siparişte <strong>{groups.length} çiçekçinin</strong> ürünü
-              var. Her biri kendi kalemini hazırlar; sipariş, en geç hazırlanan
-              kaleme göre ilerler.
+              Bu siparişte <strong>{groups.length} satıcının</strong> ürünü var.
+              Her biri kendi kalemini hazırlar; hediye ekleri çiçekle aynı
+              pakete konur. Sipariş, en geç hazırlanan çiçeğe göre ilerler.
             </p>
           )}
 
@@ -203,7 +265,9 @@ export default async function OrderTrackingPage({
                 <dt className="text-[12px] text-muted">Adres</dt>
                 <dd className="leading-snug">{order.deliveryAddress}</dd>
                 <dd className="text-[12.5px] text-muted">
-                  {order.deliveryCity}
+                  {order.deliveryDistrict
+                    ? `${order.deliveryDistrict}, ${order.deliveryCity}`
+                    : order.deliveryCity}
                 </dd>
               </div>
               <div>
@@ -233,10 +297,13 @@ export default async function OrderTrackingPage({
 
           {order.giftNote && (
             <div className="px-2 py-1">
-              <GiftNoteCard
-                text={order.giftNote}
-                from={`${order.customer.name}'den`}
-              />
+              <GiftNoteCard text={order.giftNote} from={order.senderName} />
+              {!order.senderName && (
+                <p className="mt-3 px-1 text-[11.5px] text-muted">
+                  Kartı imzasız göndermeyi seçtin — alıcı gönderenin kim
+                  olduğunu görmeyecek.
+                </p>
+              )}
             </div>
           )}
 

@@ -6,6 +6,8 @@
 import { cookies } from "next/headers";
 import { db } from "./db";
 import { cartTotals } from "./pricing";
+import { priceInfo } from "./discount";
+import type { AddOnKind } from "./enums";
 
 export const CART_COOKIE = "cicek_demo_cart";
 
@@ -54,11 +56,17 @@ export async function writeCart(lines: CartLine[]): Promise<void> {
 export type CartItemDetail = {
   productId: string;
   quantity: number;
+  /** Ödenecek fiyat — indirim aralığındaysa indirimli fiyattır. */
   unitPrice: number;
+  /** Üstü çizili liste fiyatı; indirim yoksa `unitPrice` ile aynı. */
+  listPrice: number;
+  isDiscounted: boolean;
   name: string;
   slug: string;
   imageUrl: string;
   stock: number;
+  isAddOn: boolean;
+  addOnKind: AddOnKind | null;
   sellerId: string;
   storeName: string;
   sellerCity: string;
@@ -70,6 +78,10 @@ export type CartDetail = {
   items: CartItemDetail[];
   /** Çok satıcılı siparişi görünür kılmak için mağazaya göre gruplanmış hâli. */
   groups: { sellerId: string; storeName: string; city: string; items: CartItemDetail[] }[];
+  /** Ek ürünler ayrı gösterilir — sipariş kalemi olarak da ayrı işaretlenir. */
+  addOns: CartItemDetail[];
+  /** İndirim sayesinde kazanılan toplam tutar. */
+  savings: number;
   subtotal: number;
   shipping: number;
   total: number;
@@ -79,11 +91,27 @@ export type CartDetail = {
 export async function getCartDetail(): Promise<CartDetail> {
   const lines = await readCart();
   if (lines.length === 0) {
-    return { items: [], groups: [], subtotal: 0, shipping: 0, total: 0, itemCount: 0 };
+    return {
+      items: [],
+      groups: [],
+      addOns: [],
+      savings: 0,
+      subtotal: 0,
+      shipping: 0,
+      total: 0,
+      itemCount: 0,
+    };
   }
 
   const products = await db.product.findMany({
-    where: { id: { in: lines.map((l) => l.productId) }, isActive: true },
+    where: {
+      id: { in: lines.map((l) => l.productId) },
+      isActive: true,
+      // Satıcı stoğu kapattıysa veya mağaza sipariş almayı durdurduysa ürün
+      // sepette kalmaz (madde 4 ve 16).
+      stockClosed: false,
+      seller: { acceptingOrders: true },
+    },
     include: { seller: true },
   });
 
@@ -91,14 +119,19 @@ export async function getCartDetail(): Promise<CartDetail> {
     .map((line) => {
       const product = products.find((p) => p.id === line.productId);
       if (!product) return null;
+      const price = priceInfo(product);
       return {
         productId: product.id,
         quantity: Math.min(line.quantity, Math.max(product.stock, 1)),
-        unitPrice: product.price,
+        unitPrice: price.price,
+        listPrice: price.listPrice,
+        isDiscounted: price.isDiscounted,
         name: product.name,
         slug: product.slug,
         imageUrl: product.imageUrl,
         stock: product.stock,
+        isAddOn: product.isAddOn,
+        addOnKind: (product.addOnKind as AddOnKind | null) ?? null,
         sellerId: product.sellerId,
         storeName: product.seller.storeName,
         sellerCity: product.seller.city,
@@ -124,8 +157,21 @@ export async function getCartDetail(): Promise<CartDetail> {
   }, []);
 
   const totals = cartTotals(items);
+  const savings =
+    Math.round(
+      items.reduce(
+        (sum, item) => sum + (item.listPrice - item.unitPrice) * item.quantity,
+        0,
+      ) * 100,
+    ) / 100;
 
-  return { items, groups, ...totals };
+  return {
+    items,
+    groups,
+    addOns: items.filter((item) => item.isAddOn),
+    savings,
+    ...totals,
+  };
 }
 
 /**
@@ -138,7 +184,12 @@ export async function getCartCount(): Promise<number> {
   if (lines.length === 0) return 0;
 
   const live = await db.product.findMany({
-    where: { id: { in: lines.map((l) => l.productId) }, isActive: true },
+    where: {
+      id: { in: lines.map((l) => l.productId) },
+      isActive: true,
+      stockClosed: false,
+      seller: { acceptingOrders: true },
+    },
     select: { id: true },
   });
 

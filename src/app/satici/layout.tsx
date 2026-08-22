@@ -43,7 +43,7 @@ export default async function SellerLayout({
     );
   }
 
-  const [pendingOrders, lowStock] = await Promise.all([
+  const [pendingOrders, lowStock, pendingInvoices] = await Promise.all([
     db.order.count({
       where: {
         items: { some: { sellerId: seller.id } },
@@ -51,6 +51,7 @@ export default async function SellerLayout({
       },
     }),
     db.product.count({ where: { sellerId: seller.id, stock: { lte: 5 } } }),
+    db.invoice.count({ where: { sellerId: seller.id, status: "BEKLIYOR" } }),
   ]);
 
   return (
@@ -73,6 +74,12 @@ export default async function SellerLayout({
           count: pendingOrders,
         },
         { href: "/satici/kazanc", label: "Kazançlarım", icon: "wallet" },
+        {
+          href: "/satici/faturalar",
+          label: "Faturalarım",
+          icon: "file",
+          count: pendingInvoices,
+        },
       ]}
     >
       {children}

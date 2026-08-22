@@ -9,7 +9,6 @@
 
 import { PrismaClient } from "@prisma/client";
 import {
-  ADMIN,
   CATEGORIES,
   COURIERS,
   CUSTOMERS,
@@ -17,6 +16,19 @@ import {
   PRODUCTS,
   SELLERS,
 } from "./seed-data";
+import {
+  ADD_ONS,
+  ADDON_SELLER,
+  ADMINS,
+  CROP_VARIANTS,
+  DISCOUNTS,
+  INVOICE_MONTHS,
+  NEIGHBORHOODS,
+  PACKAGING_SHOTS,
+  PRODUCT_VIDEOS,
+  SELLER_AREAS,
+  WEEKLY_PICK_SLUG,
+} from "./seed-extra";
 
 const db = new PrismaClient();
 
@@ -45,6 +57,7 @@ const daysAgo = (days: number, hour = 10) => {
   d.setHours(hour, rint(0, 59), 0, 0);
   return d;
 };
+const daysFromNow = (days: number, hour = 10) => daysAgo(-days, hour);
 
 const slugify = (input: string) => {
   const map: Record<string, string> = {
@@ -63,6 +76,10 @@ const FREE_SHIPPING_THRESHOLD = 1000;
 const SHIPPING_FEE = 79.9;
 
 const DELIVERY_SLOTS = ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00", "18:00 - 21:00"];
+
+/** Aynı fotoğrafın farklı kadrajı — galerideki yakın plan ve alternatif açı. */
+const cropVariant = (url: string, variant: string) =>
+  `${url}${url.includes("?") ? "&" : "?"}${variant}`;
 
 /* --------------------------- Sipariş dağılımı ----------------------------- */
 
@@ -94,12 +111,19 @@ const EVENT_LABEL: Record<string, string> = {
 /* --------------------------------- Kurulum -------------------------------- */
 
 async function reset() {
+  await db.auditLog.deleteMany();
+  await db.invoice.deleteMany();
+  await db.preparationPhoto.deleteMany();
+  await db.sellerScoreEvent.deleteMany();
   await db.orderEvent.deleteMany();
   await db.delivery.deleteMany();
   await db.orderItem.deleteMany();
   await db.order.deleteMany();
+  await db.productMedia.deleteMany();
   await db.product.deleteMany();
   await db.category.deleteMany();
+  await db.sellerArea.deleteMany();
+  await db.neighborhood.deleteMany();
   await db.seller.deleteMany();
   await db.address.deleteMany();
   await db.user.deleteMany();
@@ -109,10 +133,24 @@ async function main() {
   console.log("→ Mevcut veri siliniyor…");
   await reset();
 
-  /* -------------------------------- Admin -------------------------------- */
-  const admin = await db.user.create({
-    data: { ...ADMIN, role: "ADMIN", createdAt: daysAgo(400) },
-  });
+  /* -------------------------------- Adminler ------------------------------ */
+  /* Üç kişi de kendi ismiyle girer; yaptıkları denetim izine düşer (madde 20). */
+  const admins = [];
+  for (const [index, a] of ADMINS.entries()) {
+    admins.push(
+      await db.user.create({
+        data: {
+          name: a.name,
+          email: a.email,
+          phone: a.phone,
+          title: a.title,
+          role: "ADMIN",
+          createdAt: daysAgo(400 - index * 30),
+        },
+      }),
+    );
+  }
+  const admin = admins[0];
 
   /* ------------------------------- Kuryeler ------------------------------- */
   const couriers = [];
@@ -169,9 +207,30 @@ async function main() {
     });
   }
 
+  /* ------------------------------- Mahalleler ----------------------------- */
+  /* Teslimat bölgesi (madde 12) ve bayi eşleşmesi (madde 15) buradan yürür. */
+  const neighborhoods = [];
+  let order = 0;
+  for (const group of NEIGHBORHOODS) {
+    for (const name of group.names) {
+      neighborhoods.push(
+        await db.neighborhood.create({
+          data: {
+            city: group.city,
+            district: group.district,
+            name,
+            slug: slugify(`${group.city} ${group.district} ${name}`),
+            sortOrder: order++,
+          },
+        }),
+      );
+    }
+  }
+
   /* -------------------------------- Satıcılar ----------------------------- */
+  const ALL_SELLERS = [...SELLERS, ADDON_SELLER];
   const sellers = [];
-  for (const [index, s] of SELLERS.entries()) {
+  for (const [index, s] of ALL_SELLERS.entries()) {
     // Tek bir tarih: hesabın açılışı ile başvuru aynı ana düşsün. Onaylı
     // mağazalar dizideki sıraya göre eskiden yeniye — rol değiştirici ve
     // listeler her kurulumda aynı sırayla görünür.
@@ -201,10 +260,40 @@ async function main() {
         commissionRate: s.commissionRate,
         rating: s.rating,
         appliedAt: daysAgo(appliedDaysAgo),
+        // Sorumlu kişi: bayi ilişkileri ve operasyon arasında paylaştırılır
+        // (madde 21). Onay bekleyenlerin henüz sorumlusu yok.
+        accountManagerId:
+          s.status === "APPROVED" ? admins[index % admins.length].id : null,
+        acceptingOrders: true,
+        dailyQuota: s.status === "APPROVED" ? [25, 18, 20, 15, 16, 20, 60][index] ?? 20 : null,
+        activeQuota: s.status === "APPROVED" ? [12, 8, 10, 6, 8, 10, 30][index] ?? 10 : null,
       },
     });
 
     sellers.push(seller);
+  }
+
+  /* --------------------------- Bayi ↔ mahalle ----------------------------- */
+  for (const seller of sellers) {
+    const rules = SELLER_AREAS[seller.slug];
+    if (!rules) continue;
+
+    // Kural listesi boşsa bayi tüm mahallelere hizmet verir (kargolu tedarikçi).
+    const matched = rules.length
+      ? neighborhoods.filter((n) =>
+          rules.some(
+            (rule) =>
+              rule.district === n.district &&
+              (!rule.names || rule.names.includes(n.name)),
+          ),
+        )
+      : neighborhoods;
+
+    for (const n of matched) {
+      await db.sellerArea.create({
+        data: { sellerId: seller.id, neighborhoodId: n.id },
+      });
+    }
   }
 
   /* ------------------------------- Kategoriler ---------------------------- */
@@ -217,36 +306,138 @@ async function main() {
     );
   }
 
+  // Ek ürünlerin kategorisi gezinmede görünmez: katalogda tek başına
+  // listelenmezler, siparişin yanına eklenirler (madde 6).
+  const addOnCategory = await db.category.create({
+    data: {
+      name: "Hediye Ekleri",
+      slug: "hediye-ekleri",
+      imageUrl: PACKAGING_SHOTS["hediye-ekleri"],
+      sortOrder: 99,
+      isHidden: true,
+    },
+  });
+
   /* --------------------------------- Ürünler ------------------------------ */
+  const discountBySlug = new Map(DISCOUNTS.map((d) => [d.slug, d]));
   const products = [];
+
   for (const p of PRODUCTS) {
     const category = categories.find((c) => c.slug === p.category)!;
     const seller = sellers[p.seller];
+    const slug = slugify(p.name);
+    const discount = discountBySlug.get(slug);
 
-    products.push(
-      await db.product.create({
-        data: {
-          sellerId: seller.id,
-          categoryId: category.id,
-          name: p.name,
-          slug: slugify(p.name),
-          description: p.description,
-          price: p.price,
-          stock: p.stock,
-          imageUrl: p.image,
-          isActive: true,
-          isFeatured: p.featured ?? false,
-          rating: round2(4.3 + rnd() * 0.7),
-          reviewCount: rint(6, 240),
-          createdAt: daysAgo(rint(20, 400)),
-        },
-        include: { seller: true },
-      }),
-    );
+    const product = await db.product.create({
+      data: {
+        sellerId: seller.id,
+        categoryId: category.id,
+        name: p.name,
+        slug,
+        description: p.description,
+        price: p.price,
+        stock: p.stock,
+        imageUrl: p.image,
+        isActive: true,
+        isFeatured: p.featured ?? false,
+        isWeeklyPick: slug === WEEKLY_PICK_SLUG,
+        videoUrl: PRODUCT_VIDEOS[slug] ?? null,
+        discountPrice: discount?.price ?? null,
+        discountStartsAt: discount ? daysFromNow(discount.startsIn, 9) : null,
+        discountEndsAt: discount ? daysFromNow(discount.endsIn, 23) : null,
+        rating: round2(4.3 + rnd() * 0.7),
+        reviewCount: rint(6, 240),
+        createdAt: daysAgo(rint(20, 400)),
+      },
+      include: { seller: true },
+    });
+
+    // Galeri: iki kadraj + ambalaj karesi + varsa video (madde 23).
+    const gallery: { url: string; kind: string; sortOrder: number }[] = [
+      { url: p.image, kind: "IMAGE", sortOrder: 0 },
+      { url: cropVariant(p.image, CROP_VARIANTS[0]), kind: "IMAGE", sortOrder: 1 },
+      { url: cropVariant(p.image, CROP_VARIANTS[1]), kind: "IMAGE", sortOrder: 2 },
+    ];
+    const packaging = PACKAGING_SHOTS[p.category];
+    if (packaging) gallery.push({ url: packaging, kind: "IMAGE", sortOrder: 3 });
+    if (PRODUCT_VIDEOS[slug]) {
+      gallery.push({ url: PRODUCT_VIDEOS[slug], kind: "VIDEO", sortOrder: 4 });
+    }
+
+    await db.productMedia.createMany({
+      data: gallery.map((m) => ({ ...m, productId: product.id })),
+    });
+
+    products.push(product);
   }
 
-  // Vitrinde yalnızca onaylı mağazaların ürünleri listelenir.
+  // İstenen indirim/vitrin ürünleri gerçekten bulundu mu? Slug'ı kayan bir
+  // ürün sessizce indirimsiz kalmasın.
+  for (const d of DISCOUNTS) {
+    if (!products.some((p) => p.slug === d.slug)) {
+      throw new Error(`İndirim tanımlı ama ürün yok: ${d.slug}`);
+    }
+  }
+  if (!products.some((p) => p.slug === WEEKLY_PICK_SLUG)) {
+    throw new Error(`Haftanın ürünü bulunamadı: ${WEEKLY_PICK_SLUG}`);
+  }
+
+  /* -------------------------------- Ek ürünler ---------------------------- */
+  const addOnSeller = sellers.find((s) => s.slug === ADDON_SELLER.slug)!;
+  const addOns = [];
+  for (const a of ADD_ONS) {
+    const product = await db.product.create({
+      data: {
+        sellerId: addOnSeller.id,
+        categoryId: addOnCategory.id,
+        name: a.name,
+        slug: slugify(a.name),
+        description: a.description,
+        price: a.price,
+        stock: a.stock,
+        imageUrl: a.image,
+        isActive: true,
+        isAddOn: true,
+        addOnKind: a.kind,
+        rating: round2(4.4 + rnd() * 0.6),
+        reviewCount: rint(20, 180),
+        createdAt: daysAgo(rint(60, 300)),
+      },
+      include: { seller: true },
+    });
+
+    await db.productMedia.createMany({
+      data: [
+        { productId: product.id, url: a.image, kind: "IMAGE", sortOrder: 0 },
+        {
+          productId: product.id,
+          url: cropVariant(a.image, CROP_VARIANTS[0]),
+          kind: "IMAGE",
+          sortOrder: 1,
+        },
+        {
+          productId: product.id,
+          url: cropVariant(a.image, CROP_VARIANTS[1]),
+          kind: "IMAGE",
+          sortOrder: 2,
+        },
+      ],
+    });
+
+    addOns.push(product);
+  }
+
+  /* ------------------------- Bayi başına satılabilir ---------------------- */
   const sellableProducts = products.filter((p) => p.seller.status === "APPROVED");
+
+  // Hangi bayi hangi mahalleye hizmet veriyor — sipariş kurarken lazım.
+  const areaRows = await db.sellerArea.findMany();
+  const sellersByNeighborhood = new Map<string, Set<string>>();
+  for (const row of areaRows) {
+    const set = sellersByNeighborhood.get(row.neighborhoodId) ?? new Set<string>();
+    set.add(row.sellerId);
+    sellersByNeighborhood.set(row.neighborhoodId, set);
+  }
 
   /* -------------------------------- Siparişler ---------------------------- */
   let orderCounter = 1;
@@ -258,55 +449,87 @@ async function main() {
   }
   orderRows.sort((a, b) => b.ageDays - a.ageDays);
 
+  // Çiçek gönderilebilen mahalleler: en az bir çiçekçinin (hediye deposu
+  // dışında) hizmet verdiği yerler. Antalya'nın bayisi hâlâ onay beklediği için
+  // oraya sipariş düşmez — demo'daki başvuru ekranıyla tutarlı.
+  const deliverableNeighborhoods = neighborhoods.filter((n) => {
+    const ids = sellersByNeighborhood.get(n.id) ?? new Set<string>();
+    return sellableProducts.some((p) => ids.has(p.sellerId));
+  });
+
+  const lateOrders: { sellerId: string; orderNo: string; createdAt: Date }[] = [];
+
   for (const row of orderRows) {
     const createdAt = daysAgo(row.ageDays, rint(9, 20));
     const customer = pick(customers);
 
-    // Siparişlerin bir kısmı bilinçli olarak çok satıcılı — demo'nun ana iddiası.
-    const multiSeller = chance(0.3);
-    const lineCount = multiSeller ? rint(2, 3) : rint(1, 2);
+    // Önce teslimat mahallesi seçilir; ürünler yalnızca oraya hizmet veren
+    // bayilerden gelir. "Her ürün her bölgeye gitmez" kuralı seed'de de geçerli.
+    const neighborhood = pick(deliverableNeighborhoods);
+    const eligibleSellerIds = sellersByNeighborhood.get(neighborhood.id) ?? new Set();
+    const eligible = sellableProducts.filter((p) => eligibleSellerIds.has(p.sellerId));
+    if (eligible.length === 0) continue;
 
-    const chosen: typeof sellableProducts = [];
-    while (chosen.length < lineCount) {
-      const candidate = pick(sellableProducts);
+    const lineCount = rint(1, 2);
+    const chosen: typeof eligible = [];
+    let guard = 0;
+    while (chosen.length < lineCount && guard++ < 40) {
+      const candidate = pick(eligible);
       if (chosen.some((c) => c.id === candidate.id)) continue;
-      if (multiSeller && chosen.length === 1 && candidate.sellerId === chosen[0].sellerId) {
-        continue;
-      }
       chosen.push(candidate);
     }
 
-    const items = chosen.map((product) => ({
-      productId: product.id,
-      sellerId: product.sellerId,
-      productName: product.name,
-      productImage: product.imageUrl,
-      quantity: rint(1, 2),
-      unitPrice: product.price,
-      commissionRate: product.seller.commissionRate,
-      status: row.status,
-    }));
+    // Siparişlerin bir kısmı bilinçli olarak çok satıcılı: çiçek çiçekçiden,
+    // ek ürün hediye deposundan çıkar (madde 6).
+    const withAddOn = chance(0.45);
+    const addOn = withAddOn ? pick(addOns) : null;
+
+    const items = [
+      ...chosen.map((product) => ({
+        productId: product.id,
+        sellerId: product.sellerId,
+        productName: product.name,
+        productImage: product.imageUrl,
+        quantity: rint(1, 2),
+        unitPrice: product.price,
+        commissionRate: product.seller.commissionRate,
+        status: row.status,
+        isAddOn: false,
+      })),
+      ...(addOn
+        ? [
+            {
+              productId: addOn.id,
+              sellerId: addOn.sellerId,
+              productName: addOn.name,
+              productImage: addOn.imageUrl,
+              quantity: 1,
+              unitPrice: addOn.price,
+              commissionRate: addOn.seller.commissionRate,
+              status: row.status,
+              isAddOn: true,
+            },
+          ]
+        : []),
+    ];
 
     const subtotal = round2(
       items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
     );
     const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
 
-    const address = await db.address.findFirst({
-      where: { userId: customer.user.id, isDefault: true },
-    });
-
-    const recipientIsSomeoneElse = chance(0.75);
-    const recipient = recipientIsSomeoneElse ? pick(CUSTOMERS) : customer.seed;
-
+    const recipient = pick(CUSTOMERS);
     const deliveryDate = new Date(createdAt.getTime() + rint(0, 2) * DAY);
     const isCancelled = row.status === "IPTAL";
+    const giftNote = chance(0.82) ? pick(GIFT_NOTES) : null;
 
-    const order = await db.order.create({
+    const orderNo = `CS-${now.getFullYear()}-${String(orderCounter++).padStart(4, "0")}`;
+
+    const created = await db.order.create({
       data: {
         // Numara biçimi `nextOrderNo()` ile aynı olmalı: demo sırasında verilen
         // yeni sipariş, seed'den gelenlerle aynı seride görünsün.
-        orderNo: `CS-${now.getFullYear()}-${String(orderCounter++).padStart(4, "0")}`,
+        orderNo,
         customerId: customer.user.id,
         status: row.status,
         subtotal,
@@ -314,11 +537,20 @@ async function main() {
         total: round2(subtotal + shipping),
         recipientName: recipient.name,
         recipientPhone: recipient.phone,
-        deliveryCity: recipientIsSomeoneElse ? recipient.city : (address?.city ?? customer.seed.city),
-        deliveryAddress: recipientIsSomeoneElse
-          ? `${recipient.district} — ${recipient.address}`
-          : `${address?.district ?? ""} — ${address?.fullAddress ?? ""}`,
-        giftNote: chance(0.82) ? pick(GIFT_NOTES) : null,
+        deliveryCity: neighborhood.city,
+        deliveryDistrict: neighborhood.district,
+        neighborhoodId: neighborhood.id,
+        deliveryAddress: `${neighborhood.name} Mah. ${pick([
+          "Bağdat Cad.",
+          "Gül Sok.",
+          "İnönü Cad.",
+          "Zambak Sok.",
+          "Cumhuriyet Cad.",
+        ])} No:${rint(3, 180)} D:${rint(1, 22)}`,
+        giftNote,
+        // Gönderici ismi (madde 13): notların çoğu imzalı, bir kısmı bilerek
+        // imzasız — "gönderici ismi istenmezse kutucuk kapansın".
+        senderName: giftNote && chance(0.72) ? customer.user.name : null,
         deliveryDate,
         deliverySlot: pick(DELIVERY_SLOTS),
         paymentMethod: "KART",
@@ -341,7 +573,7 @@ async function main() {
       stamp += index === 0 ? 0 : rint(40, 300) * 60 * 1000;
       await db.orderEvent.create({
         data: {
-          orderId: order.id,
+          orderId: created.id,
           status,
           label: EVENT_LABEL[status],
           actor:
@@ -361,11 +593,31 @@ async function main() {
       stamp += rint(60, 600) * 60 * 1000;
       await db.orderEvent.create({
         data: {
-          orderId: order.id,
+          orderId: created.id,
           status: "IPTAL",
           label: EVENT_LABEL.IPTAL,
           actor: "Admin: " + admin.name,
           createdAt: new Date(stamp),
+        },
+      });
+    }
+
+    /* ------------------------- Hazırlık onay görseli ---------------------- */
+    /* Satıcı buketi hazırlayınca fotoğrafını yükler (madde 22). Demo verisinde
+       ürünün kendi karesinin yakın planı kullanılır. */
+    if (!isCancelled && FLOW.indexOf(row.status) >= FLOW.indexOf("HAZIRLANIYOR") && chance(0.7)) {
+      await db.preparationPhoto.create({
+        data: {
+          orderId: created.id,
+          sellerId: chosen[0].sellerId,
+          imageUrl: cropVariant(chosen[0].imageUrl, CROP_VARIANTS[0]),
+          note: pick([
+            "Buket hazır, kurdelesi bağlandı.",
+            "Hazırlandı, kart notu iliştirildi.",
+            "Tezgâhtan çıkarken çekildi.",
+            null,
+          ]),
+          createdAt: new Date(createdAt.getTime() + rint(60, 400) * 60 * 1000),
         },
       });
     }
@@ -377,7 +629,7 @@ async function main() {
 
     await db.delivery.create({
       data: {
-        orderId: order.id,
+        orderId: created.id,
         courierId: courier?.id ?? null,
         status: isCancelled
           ? "ATANMADI"
@@ -389,31 +641,159 @@ async function main() {
                 ? "ATANDI"
                 : "ATANMADI",
         assignedAt: courier ? new Date(createdAt.getTime() + rint(30, 400) * 60 * 1000) : null,
+        // Arabaya veriliş anı (madde 18): kurye listesine bundan sonra düşer.
+        dispatchedAt: needsCourier ? new Date(stamp - rint(40, 200) * 60 * 1000) : null,
         pickedUpAt: needsCourier ? new Date(stamp - rint(30, 180) * 60 * 1000) : null,
         deliveredAt: row.status === "TESLIM_EDILDI" ? new Date(stamp) : null,
       },
     });
 
+    // Ödemesi yarım kalan siparişlerin bir kısmına hatırlatma gitmiş (madde 14).
+    if (row.status === "BEKLEMEDE" && chance(0.5)) {
+      await db.order.update({
+        where: { id: created.id },
+        data: {
+          reminderCount: 1,
+          lastReminderAt: new Date(createdAt.getTime() + rint(30, 180) * 60 * 1000),
+        },
+      });
+    }
+
+    // Teslim tarihi geçtiği hâlde yola çıkmamış siparişler puan düşürür.
+    if (!isCancelled && row.status === "HAZIRLANIYOR" && deliveryDate.getTime() < now.getTime()) {
+      lateOrders.push({ sellerId: chosen[0].sellerId, orderNo, createdAt });
+    }
+
     await db.order.update({
-      where: { id: order.id },
+      where: { id: created.id },
       data: { updatedAt: new Date(stamp) },
     });
   }
 
-  /* --------------------------------- Özet --------------------------------- */
-  const [userCount, orderCount, productCount] = await Promise.all([
-    db.user.count(),
-    db.order.count(),
-    db.product.count(),
-  ]);
+  /* ------------------------------- Bayi puanı ----------------------------- */
+  /* Puan 100'den başlar; gecikme başına 5 puan iner (madde 17). Geçmiş
+     hareketler de yazılır ki tablo boş görünmesin. */
+  for (const late of lateOrders) {
+    await db.sellerScoreEvent.create({
+      data: {
+        sellerId: late.sellerId,
+        delta: -5,
+        reason: "Teslimat tarihi geçti, sipariş hâlâ hazırlıkta",
+        orderNo: late.orderNo,
+        createdAt: new Date(late.createdAt.getTime() + 2 * DAY),
+      },
+    });
+  }
 
-  console.log(`✓ ${userCount} kullanıcı, ${sellers.length} mağaza, ${categories.length} kategori`);
-  console.log(`✓ ${productCount} ürün, ${orderCount} sipariş oluşturuldu`);
+  const approvedSellers = sellers.filter((s) => s.status === "APPROVED");
+  for (const [index, seller] of approvedSellers.entries()) {
+    if (index % 3 === 0) {
+      await db.sellerScoreEvent.create({
+        data: {
+          sellerId: seller.id,
+          delta: +3,
+          reason: "Ay boyunca gecikmesiz teslimat",
+          createdAt: daysAgo(rint(8, 25)),
+        },
+      });
+    }
+    if (index % 4 === 1) {
+      await db.sellerScoreEvent.create({
+        data: {
+          sellerId: seller.id,
+          delta: -5,
+          reason: "Müşteri şikâyeti: buket görseldekinden küçük",
+          createdAt: daysAgo(rint(5, 20)),
+        },
+      });
+    }
+  }
+
+  for (const seller of sellers) {
+    const events = await db.sellerScoreEvent.findMany({ where: { sellerId: seller.id } });
+    const score = Math.max(0, Math.min(100, 100 + events.reduce((s, e) => s + e.delta, 0)));
+    await db.seller.update({ where: { id: seller.id }, data: { score } });
+  }
+
+  /* -------------------------------- Faturalar ----------------------------- */
+  /* Satıcı yükler, finans onaylar (madde 1 ve 2). */
+  for (const seller of approvedSellers) {
+    const owner = await db.user.findUnique({ where: { id: seller.userId } });
+    for (const [index, month] of INVOICE_MONTHS.entries()) {
+      const items = await db.orderItem.findMany({
+        where: { sellerId: seller.id },
+        select: { unitPrice: true, quantity: true, commissionRate: true },
+      });
+      const commission = round2(
+        items.reduce((sum, i) => sum + i.unitPrice * i.quantity * i.commissionRate, 0) /
+          INVOICE_MONTHS.length,
+      );
+      if (commission <= 0) continue;
+
+      await db.invoice.create({
+        data: {
+          sellerId: seller.id,
+          periodLabel: month,
+          invoiceNo: `${seller.slug.slice(0, 3).toUpperCase()}-${month.replace("-", "")}-${rint(100, 999)}`,
+          amount: commission,
+          fileName: `${month}-komisyon-faturasi.pdf`,
+          fileType: "application/pdf",
+          fileSize: rint(48, 320) * 1024,
+          status: index === 0 ? "ONAYLANDI" : pick(["BEKLIYOR", "BEKLIYOR", "ONAYLANDI"]),
+          uploadedBy: `Satıcı: ${owner?.name ?? seller.storeName}`,
+          createdAt: daysAgo(index === 0 ? rint(40, 55) : rint(6, 20)),
+          reviewedAt: index === 0 ? daysAgo(rint(30, 38)) : null,
+          reviewedBy: index === 0 ? admins[2].name : null,
+        },
+      });
+    }
+  }
+
+  /* ------------------------------- Denetim izi ---------------------------- */
+  /* Üç admin de kendi ismiyle çalışıyor; kim neyi değiştirmiş görünür (madde 20). */
+  const auditSeed: { actor: (typeof admins)[number]; action: string; summary: string; entity: string; daysAgo: number }[] = [
+    { actor: admins[1], action: "seller.commission", summary: `${approvedSellers[0]?.storeName} komisyon oranı %12 olarak güncellendi`, entity: "Seller", daysAgo: 26 },
+    { actor: admins[0], action: "seller.approve", summary: `${approvedSellers[3]?.storeName} başvurusu onaylandı`, entity: "Seller", daysAgo: 21 },
+    { actor: admins[2], action: "invoice.approve", summary: "Haziran dönemi komisyon faturaları onaylandı", entity: "Invoice", daysAgo: 33 },
+    { actor: admins[1], action: "seller.area", summary: `${approvedSellers[0]?.storeName} için Kadıköy / Moda bölgesi açıldı`, entity: "SellerArea", daysAgo: 14 },
+    { actor: admins[0], action: "order.courier", summary: "CS-2026-0012 siparişine kurye atandı", entity: "Order", daysAgo: 9 },
+    { actor: admins[2], action: "seller.quota", summary: `${approvedSellers[1]?.storeName} günlük kotası 18 olarak ayarlandı`, entity: "Seller", daysAgo: 7 },
+    { actor: admins[1], action: "product.visibility", summary: "Stokta olmayan 2 ürün yayından kaldırıldı", entity: "Product", daysAgo: 4 },
+  ];
+
+  for (const row of auditSeed) {
+    if (!row.actor) continue;
+    await db.auditLog.create({
+      data: {
+        userId: row.actor.id,
+        actorName: row.actor.name,
+        actorRole: "ADMIN",
+        action: row.action,
+        summary: row.summary,
+        entity: row.entity,
+        createdAt: daysAgo(row.daysAgo, rint(9, 18)),
+      },
+    });
+  }
+
+  /* --------------------------------- Özet --------------------------------- */
+  const [userCount, orderCount, productCount, neighborhoodCount, invoiceCount] =
+    await Promise.all([
+      db.user.count(),
+      db.order.count(),
+      db.product.count(),
+      db.neighborhood.count(),
+      db.invoice.count(),
+    ]);
+
+  console.log(`✓ ${userCount} kullanıcı, ${sellers.length} mağaza, ${categories.length + 1} kategori`);
+  console.log(`✓ ${productCount} ürün (${addOns.length} ek ürün), ${orderCount} sipariş`);
+  console.log(`✓ ${neighborhoodCount} mahalle, ${invoiceCount} fatura, ${auditSeed.length} denetim kaydı`);
   console.log("\nDemo hesapları:");
   console.log(`  Müşteri : ${CUSTOMERS[0].name} <${CUSTOMERS[0].email}>`);
   console.log(`  Satıcı  : ${SELLERS[0].owner} <${SELLERS[0].email}>`);
   console.log(`  Kurye   : ${COURIERS[0].name} <${COURIERS[0].email}>`);
-  console.log(`  Admin   : ${ADMIN.name} <${ADMIN.email}>`);
+  console.log(`  Admin   : ${ADMINS.map((a) => a.name).join(", ")}`);
   console.log("\nRol değiştirici sağ üstte — giriş yapmaya gerek yok.\n");
 }
 

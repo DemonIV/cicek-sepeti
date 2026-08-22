@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 30 Temmuz 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 21 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -10,6 +10,10 @@
 
 Dört rollü (Müşteri · Satıcı · Kurye · Admin) çok satıcılı çiçek pazaryeri
 demosu. Next.js App Router + TypeScript + Tailwind + Prisma/SQLite.
+
+**21 Ağustos 2026'da müşteriden gelen 25 maddelik istek listesi uygulandı.**
+Madde madde dökümü `ISTEKLER.md`'de — yeni bir işe başlamadan önce oraya bak.
+Ayrıntılar §1a'da.
 
 ```bash
 npm install
@@ -30,18 +34,98 @@ ve sunum öncesi yapılacaklar README'nin "Yayına alma" bölümünde. **İlk de
 502 verdi; sebebi ve çözümü §2a'da — oraya bakmadan görsel ayarlarına
 dokunma.**
 
-**§9'daki 9 adımlık demo senaryosu 27 Temmuz'da uçtan uca test edildi ve geçti.**
-Sipariş verme → satıcı hazırlama → admin kurye atama → kurye teslim → müşteri
-takibi → admin panosu döngüsünde kırık ekran veya hata yok.
-
-> ⚠️ **28 Temmuz'daki değişiklikler sonrası senaryo yeniden koşulmadı.** O gün
-> yapılanlar görünüm katmanındaydı (kart, ızgara, iskelet, puan, kampanya) ve iş
-> mantığına dokunulmadı; `tsc` ve `npm run build` temiz, sayfalar tek tek
-> tarayıcıda görüldü. Yine de **sunumdan önce 9 adımı bir kez baştan sona
-> tıkla** — özellikle sepet (çapraz satış eklendi) ve ürün detay (düzen değişti)
-> adımlarını.
+**README'deki 10 adımlık demo senaryosu 21 Ağustos'ta uçtan uca test edildi ve
+geçti** (ayrıntı §1a → "Test edildi"). Bölge seçimi → ürün/galeri/video → ek
+ürün → mahalleli ödeme → satıcı hazırlama + fotoğraf → arabaya verildi → admin
+kurye atama → kurye teslim → müşteri takibi → admin panosu döngüsünde kırık
+ekran veya hata yok.
 
 `tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor.
+
+---
+
+## 1a. 21 Ağustos 2026 oturumu — müşteri istek listesi (25 madde)
+
+Müşteri 4 sayfalık bir liste gönderdi; 24'ü uygulandı, 11. maddeyi kendisi
+iptal etti ("bu maddeyi es geçelim, yanlış olmuş"), 10. madde süreç notu.
+**Tam döküm ve nasıl uygulandığı `ISTEKLER.md`'de.** Burada yalnızca bir
+sonraki oturumun bilmesi gerekenler var.
+
+### Şema büyüdü (iki migration)
+
+`20260821155928_genisletilmis_demo` ve `20260821160132_unvan_ve_gizli_kategori`:
+
+| Yeni model | Ne için |
+| --- | --- |
+| `Neighborhood`, `SellerArea` | Teslimat bölgesi ve bayi ↔ mahalle eşleşmesi (12, 15) |
+| `ProductMedia` | Ürün galerisi: 3+ fotoğraf, video (23) |
+| `PreparationPhoto` | Hazırlık onay görseli (22) |
+| `Invoice` | Bayi faturası (1, 2) |
+| `SellerScoreEvent` | Bayi puan hareketleri (17) |
+| `AuditLog` | Denetim izi (20) |
+
+Mevcut modellere eklenenler: `Seller.acceptingOrders/pauseReason/score/
+dailyQuota/activeQuota/accountManagerId`, `Product.stockClosed/isAddOn/
+addOnKind/discountPrice/discountStartsAt/discountEndsAt/isWeeklyPick/videoUrl`,
+`Order.deliveryDistrict/neighborhoodId/senderName/reminderCount/lastReminderAt`,
+`OrderItem.isAddOn`, `Delivery.dispatchedAt/proofPhotoUrl`, `User.title`,
+`Category.isHidden`.
+
+### Yeni iş mantığı dosyaları
+
+`discount.ts` (zamanlı indirim — geçerli fiyatı hesaplayan **tek** yer),
+`delivery-area.ts` (bölge çerezi + filtre), `collections.ts` (üst şerit),
+`seller-score.ts` (puan + otomatik gecikme taraması), `audit.ts` (denetim izi).
+Yeni ekran yazarken fiyatı `priceInfo()`'dan al, `product.price`'ı doğrudan
+yazma — indirim aralıktaysa yanlış tutar çıkar.
+
+### Yetki değişimi — dikkat
+
+**Satıcı artık ürün ekleyemez / düzenleyemez / silemez** (madde 4). Ürün CRUD
+`actions/seller.ts`'ten `actions/admin.ts`'e taşındı, rotalar
+`/satici/urunler/yeni` ve `/satici/urunler/[id]` **silindi**, yerine
+`/admin/urunler/yeni` ve `/admin/urunler/[id]` geldi. Satıcının tek yetkisi
+`setStockClosed`. Bu kuralı gevşetme — müşterinin açık isteği.
+
+### Demo verisi
+
+7. mağaza olarak **Hediye Deposu** eklendi: yalnızca ek ürün satar, tüm
+mahallelere kargolar. Amacı çift: "ek ürün" akışını (madde 6) gerçek bir
+mağazaya dayandırmak ve her siparişi doğal olarak çok satıcılı yapmak.
+**Ek ürünler siparişin durumunu geciktirmez** — `sellerAdvanceItems` içinde
+durum yalnızca `isAddOn: false` kalemlerden türetilir, ek ürünler pakete
+eşlik eder. (Bunu değiştirirsen demo senaryosu 6. adımda takılır.)
+
+Bursa ve Antalya bayileri hâlâ onay beklediği için o şehirlerin mahalleleri
+bölge seçicide **kapalı** görünür. Bu kasıtlı: admin bayiyi onaylayınca şehir
+açılır, sunumda gösterilebilecek bir bağ.
+
+### Videolar yerel
+
+`public/video/*.mp4` — dört ürünün tanıtım videosu. Unsplash karesinden ffmpeg
+ile üretilmiş 7 saniyelik yavaş zoom (Ken Burns), toplam ~2,7 MB. Dış CDN
+denendi, hepsi 403 verdi; yerel dosya internetsiz de oynar. Yenisini üretmek
+istersen: `ffmpeg -loop 1 -i kare.jpg -filter_complex
+"scale=2160:2160,zoompan=z='min(zoom+0.00035,1.22)':d=210:s=1080x1080:fps=30,
+format=yuv420p" -t 7 -c:v libx264 -crf 26 -movflags +faststart -an cikti.mp4`.
+
+### Tipografi
+
+Başlık yüzü **Bodoni Moda → Outfit**. Bodoni yalnızca hediye notunda kaldı
+(`--font-note`). CSS değişkeni adlarına dikkat: next/font değişkenleri
+`--font-outfit` ve `--font-bodoni-note`; Tailwind `@theme` içindeki
+`--font-display` bunları sarar. next/font'a doğrudan `--font-display` adını
+verirsen kendi kendini referanslayıp yazı tipi çöker.
+
+### Test edildi
+
+10 adımlık demo senaryosu tarayıcıda uçtan uca koşuldu (sipariş `CS-2026-0039`):
+bölge seçimi → indirimli ürün + galeri/video → ek ürün → mahalle seçimli ödeme +
+imzalı kart notu → satıcı bugün listesi → hazırlık fotoğrafı yükleme → arabaya
+verildi → admin kurye atama → kurye teslim → müşteri takibinde fotoğraf →
+admin panosu. Ayrıca fatura yükleme + onaylama, bölge açma/kapatma, stok
+kapatma/açma ve denetim izi tek tek denendi. `tsc --noEmit` ve `npm run build`
+temiz (37 rota).
 
 ---
 
@@ -234,8 +318,16 @@ kararlar, kapsam dışı.
 - **Görseller Unsplash'ten geliyor, internet gerekir.** Bağlantı yoksa uygulama
   kırılmaz; `ProductImage` yerel çiçek çizimine düşer. Sunumdan önce sayfaları
   bir kez gezip önbelleğe almak iyi olur.
-- Kökte üç markdown var ve üçü de gereklidir: `Claude.md` (brief),
-  `README.md` (teslim dokümanı), `OTURUM-NOTLARI.md` (bu dosya).
+- **Tarayıcı otomasyonunda ekran görüntüsü aldatıcı olabilir.** Bu makinede
+  Chrome %75 yakınlaştırmada ve pencere 2560 CSS px genişliğinde; ekran
+  görüntüsü sayfanın yalnızca bir bölümünü kırpıyor, sayfa boş sanılabiliyor.
+  Doğrulamayı `javascript_tool` ile DOM üzerinden yap.
+- **Sunucu eylemi tıklaması işe yaramıyorsa** sayfa muhtemelen henüz hydrate
+  olmamıştır (dev sunucusunda ilk derleme yavaş). Yeniden yükleyip tekrar dene;
+  `document.body.innerText.length` küçükse sayfa hâlâ geliyordur.
+- Kökte dört markdown var ve dördü de gereklidir: `Claude.md` (brief),
+  `README.md` (teslim dokümanı), `ISTEKLER.md` (müşteri istek listesi ve
+  karşılıkları), `OTURUM-NOTLARI.md` (bu dosya).
 
 ---
 
@@ -271,10 +363,11 @@ Giriş ekranı yok; sağ üstteki **rol değiştirici** ile geçiliyor.
 | Müşteri | Zeynep Aksoy |
 | Satıcı | Serkan Yalçın — Gül Bahçesi Çiçekçilik (İstanbul, %12) |
 | Kurye | Murat Ilgaz |
-| Admin | Nazlı Öztürk |
+| Admin | Nazlı Öztürk (ayrıca Kerem Balcı, Sibel Aksu) |
 
-Seed: 24 kullanıcı, 6 mağaza (2'si onay bekliyor), 10 kategori, 61 ürün,
-38 sipariş (`CS-2026-0001` … `CS-2026-0038`). Sabit tohumlu — her kurulumda
+Seed: 27 kullanıcı, 7 mağaza (2'si onay bekliyor), 11 kategori (biri gizli),
+70 ürün (9'u ek ürün), 55 mahalle, 38 sipariş (`CS-2026-0001` …
+`CS-2026-0038`), 10 fatura, 7 denetim kaydı. Sabit tohumlu — her kurulumda
 aynı veri.
 
 ---

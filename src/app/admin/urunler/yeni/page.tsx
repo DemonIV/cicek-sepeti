@@ -1,28 +1,34 @@
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { createProduct } from "@/app/actions/seller";
+import { createProduct } from "@/app/actions/admin";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { ProductForm } from "@/components/panel/ProductForm";
 
 export const metadata: Metadata = { title: "Yeni ürün" };
 
 export default async function NewProductPage() {
-  const categories = await db.category.findMany({
-    orderBy: { sortOrder: "asc" },
-  });
+  const [categories, sellers] = await Promise.all([
+    db.category.findMany({ orderBy: { sortOrder: "asc" } }),
+    db.seller.findMany({
+      where: { status: "APPROVED" },
+      orderBy: { storeName: "asc" },
+    }),
+  ]);
 
   return (
     <>
       <PanelHeader
         title="Yeni ürün"
-        description="Kaydettiğinde ürün doğrudan vitrine çıkar."
+        description="Ürün bilgisini operasyon ekibi yönetir; bayi yalnızca stoğu kapatabilir."
       />
       <ProductForm
         action={createProduct}
         categories={categories}
+        sellers={sellers}
         submitLabel="Ürünü yayına al"
         initial={{
           name: "",
+          sellerId: "",
           categoryId: "",
           price: "",
           stock: "",
@@ -30,6 +36,12 @@ export default async function NewProductPage() {
           description: "",
           isActive: true,
           isFeatured: false,
+          isWeeklyPick: false,
+          discountPrice: "",
+          discountStartsAt: "",
+          discountEndsAt: "",
+          videoUrl: "",
+          gallery: "",
         }}
       />
     </>

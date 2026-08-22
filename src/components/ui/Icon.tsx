@@ -20,9 +20,50 @@ export type IconName =
   | "plus"
   | "trash"
   | "home"
-  | "grid";
+  | "grid"
+  | "chevron-down"
+  | "camera"
+  | "file"
+  | "play"
+  | "close"
+  | "bell"
+  | "shield"
+  | "video";
 
 const PATHS: Record<IconName, React.ReactNode> = {
+  "chevron-down": <path d="m6 9 6 6 6-6" />,
+  camera: (
+    <>
+      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13.5" r="3.5" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-4-4Z" />
+      <path d="M14 3v4h4" />
+    </>
+  ),
+  play: <path d="M8 5.5v13l11-6.5-11-6.5Z" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
+  bell: (
+    <>
+      <path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 3h15L18 15Z" />
+      <path d="M10 21h4" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3 5 6v5.5c0 4.2 2.9 7.6 7 9.5 4.1-1.9 7-5.3 7-9.5V6l-7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="3" y="6" width="12" height="12" rx="2" />
+      <path d="m15 10.5 6-3.5v10l-6-3.5" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="3" y="3" width="7" height="8" rx="1.5" />

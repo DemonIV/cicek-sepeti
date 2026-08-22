@@ -19,13 +19,18 @@ model User {
   email     String   @unique
   phone     String?
   role      String // CUSTOMER | SELLER | COURIER | ADMIN
+  /// Görev unvanı — satıcı panelindeki "sorumlu kişi" kartında görünür.
+  title     String?
   avatarUrl String?
   createdAt DateTime @default(now())
 
-  seller     Seller?
-  addresses  Address[]
-  orders     Order[]    @relation("CustomerOrders")
-  deliveries Delivery[] @relation("CourierDeliveries")
+  seller         Seller?
+  addresses      Address[]
+  orders         Order[]    @relation("CustomerOrders")
+  deliveries     Delivery[] @relation("CourierDeliveries")
+  /// Bir admin birden çok bayinin sorumlusudur (satıcı panelindeki "sorumlu kişi").
+  managedSellers Seller[]   @relation("AccountManager")
+  auditLogs      AuditLog[]
 
   @@index([role])
 }
@@ -60,11 +65,77 @@ model Seller {
   appliedAt      DateTime @default(now())
   createdAt      DateTime @default(now())
 
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  products Product[]
-  items    OrderItem[]
+  /// Sipariş alımı açık mı? Operasyon tek anahtarla kapatır (bayi tatilde, yoğun).
+  acceptingOrders Boolean @default(true)
+  pauseReason     String?
+
+  /// Hizmet puanı: 100'den başlar, gecikme gibi olaylarda otomatik düşer.
+  score Int @default(100)
+
+  /// Kota — gün başına kaç sipariş, aynı anda kaç açık sipariş taşıyabilir.
+  dailyQuota  Int?
+  activeQuota Int?
+
+  /// Bayinin platformdaki sorumlusu (admin kullanıcısı).
+  accountManagerId String?
+
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountManager User?              @relation("AccountManager", fields: [accountManagerId], references: [id])
+  products       Product[]
+  items          OrderItem[]
+  areas          SellerArea[]
+  scoreEvents    SellerScoreEvent[]
+  invoices       Invoice[]
+  prepPhotos     PreparationPhoto[]
 
   @@index([status])
+  @@index([accountManagerId])
+}
+
+/// Mahalle — teslimat bölgesinin en küçük birimi. Hangi bayinin hangi mahalleye
+/// hizmet verdiği `SellerArea` ile açılır; müşteri de siparişi buraya gönderir.
+model Neighborhood {
+  id        String @id @default(cuid())
+  city      String
+  district  String
+  name      String
+  slug      String @unique
+  sortOrder Int    @default(0)
+
+  sellers SellerArea[]
+  orders  Order[]
+
+  @@index([city])
+  @@index([city, district])
+}
+
+/// Bayi ↔ mahalle eşleşmesi. Eşleşme yoksa o mahalleye o bayinin ürünü gitmez.
+model SellerArea {
+  id             String   @id @default(cuid())
+  sellerId       String
+  neighborhoodId String
+  createdAt      DateTime @default(now())
+
+  seller       Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  neighborhood Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+
+  @@unique([sellerId, neighborhoodId])
+  @@index([neighborhoodId])
+}
+
+/// Bayi puan hareketi — puanın neden düştüğünü tek tek gösterir.
+model SellerScoreEvent {
+  id        String   @id @default(cuid())
+  sellerId  String
+  delta     Int
+  reason    String
+  orderNo   String?
+  createdAt DateTime @default(now())
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([orderNo])
 }
 
 model Category {
@@ -73,6 +144,8 @@ model Category {
   slug      String  @unique
   imageUrl  String?
   sortOrder Int     @default(0)
+  /// Gezinmede ve ana sayfada listelenmez (ek ürünlerin kategorisi gibi).
+  isHidden  Boolean @default(false)
 
   products Product[]
 }
@@ -93,51 +166,156 @@ model Product {
   reviewCount Int      @default(0)
   createdAt   DateTime @default(now())
 
-  seller   Seller      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category Category    @relation(fields: [categoryId], references: [id])
+  /// Satıcı ürünü düzenleyemez ama stoğunu kapatabilir — kapalıyken satışta olmaz.
+  stockClosed Boolean @default(false)
+
+  /// Ek ürün (çikolata, balon, vazo, kart): katalogda tek başına listelenmez,
+  /// siparişin yanına eklenir.
+  isAddOn   Boolean @default(false)
+  addOnKind String? // CIKOLATA | BALON | VAZO | KART | OYUNCAK
+
+  /// Zaman aralıklı indirim. Aralık dışındaysa liste fiyatı geçerlidir.
+  discountPrice    Float?
+  discountStartsAt DateTime?
+  discountEndsAt   DateTime?
+
+  /// Ana sayfadaki "Haftanın ürünü" bölümü.
+  isWeeklyPick Boolean @default(false)
+
+  /// Tanıtım videosu — galeride oynatılır.
+  videoUrl String?
+
+  seller   Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category Category       @relation(fields: [categoryId], references: [id])
   items    OrderItem[]
+  media    ProductMedia[]
 
   @@index([sellerId])
   @@index([categoryId])
   @@index([isActive])
+  @@index([isAddOn])
+}
+
+/// Ürün galerisi — en az 3 fotoğraf, isteğe bağlı video.
+model ProductMedia {
+  id        String @id @default(cuid())
+  productId String
+  url       String
+  kind      String @default("IMAGE") // IMAGE | VIDEO
+  sortOrder Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model Order {
-  id         String   @id @default(cuid())
-  orderNo    String   @unique
-  customerId String
-  status     String // BEKLEMEDE | ONAYLANDI | HAZIRLANIYOR | YOLDA | TESLIM_EDILDI | IPTAL
-  subtotal   Float
-  shippingFee Float   @default(0)
-  total      Float
+  id          String @id @default(cuid())
+  orderNo     String @unique
+  customerId  String
+  status      String // BEKLEMEDE | ONAYLANDI | HAZIRLANIYOR | YOLDA | TESLIM_EDILDI | IPTAL
+  subtotal    Float
+  shippingFee Float  @default(0)
+  total       Float
 
-  recipientName  String
-  recipientPhone String
-  deliveryCity   String
-  deliveryAddress String
-  giftNote       String?
-  deliveryDate   DateTime
-  deliverySlot   String // "09:00 - 12:00"
+  recipientName    String
+  recipientPhone   String
+  deliveryCity     String
+  deliveryDistrict String?
+  neighborhoodId   String?
+  deliveryAddress  String
+  giftNote         String?
+  /// Kart notunun altına yazılan gönderici adı. Boşsa not imzasız gider.
+  senderName       String?
+  deliveryDate     DateTime
+  deliverySlot     String // "09:00 - 12:00"
 
-  paymentMethod String   @default("KART")
-  paymentStatus String   @default("BEKLIYOR") // BEKLIYOR | ODENDI | BASARISIZ
+  paymentMethod String  @default("KART")
+  paymentStatus String  @default("BEKLIYOR") // BEKLIYOR | ODENDI | BASARISIZ
   cancelReason  String?
+
+  /// Ödemesi yarım kalan siparişe gönderilen hatırlatmalar.
+  reminderCount  Int       @default(0)
+  lastReminderAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer User        @relation("CustomerOrders", fields: [customerId], references: [id])
-  items    OrderItem[]
-  delivery Delivery?
-  events   OrderEvent[]
+  customer     User               @relation("CustomerOrders", fields: [customerId], references: [id])
+  neighborhood Neighborhood?      @relation(fields: [neighborhoodId], references: [id])
+  items        OrderItem[]
+  delivery     Delivery?
+  events       OrderEvent[]
+  prepPhotos   PreparationPhoto[]
 
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@index([paymentStatus])
+}
+
+/// Hazırlık onay görseli: satıcı buketi hazırlayınca fotoğrafını yükler,
+/// müşteri sipariş takibinde görür.
+model PreparationPhoto {
+  id        String   @id @default(cuid())
+  orderId   String
+  sellerId  String
+  imageUrl  String
+  note      String?
+  createdAt DateTime @default(now())
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+/// Fatura — satıcı kendi panelinden yükler, admin finans ekranından onaylar.
+model Invoice {
+  id          String    @id @default(cuid())
+  sellerId    String
+  periodLabel String // "2026-07"
+  invoiceNo   String
+  amount      Float
+  fileName    String
+  fileType    String
+  fileSize    Int
+  /// Görsel yüklendiyse küçültülmüş önizleme; PDF'te boş kalır (demo).
+  previewUrl  String?
+  status      String    @default("BEKLIYOR") // BEKLIYOR | ONAYLANDI | REDDEDILDI
+  note        String?
+  uploadedBy  String
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([status])
+}
+
+/// Denetim izi — hangi admin neyi değiştirdi. Üç admin aynı panele girdiği için
+/// her işlem ismiyle kaydedilir.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  actorName String
+  actorRole String
+  action    String
+  summary   String
+  entity    String
+  entityId  String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model OrderItem {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   orderId        String
   productId      String
   sellerId       String
@@ -147,6 +325,8 @@ model OrderItem {
   unitPrice      Float
   commissionRate Float // sipariş anındaki komisyon oranı — sonradan değişse geçmiş bozulmaz
   status         String // kalem bazlı durum; sipariş durumu bunlardan türetilir
+  /// Ek ürün mü (çikolata, balon…)? Ana ürünlerden ayrı gösterilir.
+  isAddOn        Boolean @default(false)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -157,14 +337,18 @@ model OrderItem {
 }
 
 model Delivery {
-  id         String    @id @default(cuid())
-  orderId    String    @unique
-  courierId  String?
-  status     String // ATANMADI | ATANDI | YOLDA | TESLIM_EDILDI
-  assignedAt DateTime?
-  pickedUpAt DateTime?
-  deliveredAt DateTime?
-  note       String?
+  id            String    @id @default(cuid())
+  orderId       String    @unique
+  courierId     String?
+  status        String // ATANMADI | ATANDI | YOLDA | TESLIM_EDILDI
+  assignedAt    DateTime?
+  /// Sipariş arabaya verildiği an — kurye listesine bundan sonra düşer.
+  dispatchedAt  DateTime?
+  pickedUpAt    DateTime?
+  deliveredAt   DateTime?
+  note          String?
+  /// Teslim anının fotoğrafı (kurye çeker).
+  proofPhotoUrl String?
 
   order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   courier User? @relation("CourierDeliveries", fields: [courierId], references: [id])

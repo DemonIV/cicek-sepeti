@@ -37,8 +37,12 @@ export type CheckoutInput = {
   recipientName: string;
   recipientPhone: string;
   deliveryCity: string;
+  deliveryDistrict: string | null;
+  neighborhoodId: string | null;
   deliveryAddress: string;
   giftNote: string | null;
+  /** Kart notunun altına yazılan gönderici adı; istenmezse null (madde 13). */
+  senderName: string | null;
   deliveryDate: Date;
   deliverySlot: string;
 };
@@ -79,8 +83,11 @@ export async function createOrderFromCart(
       recipientName: input.recipientName,
       recipientPhone: input.recipientPhone,
       deliveryCity: input.deliveryCity,
+      deliveryDistrict: input.deliveryDistrict,
+      neighborhoodId: input.neighborhoodId,
       deliveryAddress: input.deliveryAddress,
       giftNote: input.giftNote,
+      senderName: input.senderName,
       deliveryDate: input.deliveryDate,
       deliverySlot: input.deliverySlot,
       paymentStatus: "BEKLIYOR",
@@ -96,6 +103,7 @@ export async function createOrderFromCart(
           // değiştirilirse geçmiş kazanç raporları bozulmaz.
           commissionRate: item.commissionRate,
           status: "BEKLEMEDE",
+          isAddOn: item.isAddOn,
         })),
       },
       delivery: { create: { status: "ATANMADI" } },
@@ -256,7 +264,16 @@ export async function sellerAdvanceItems({
   }
 
   const fresh = await db.orderItem.findMany({ where: { orderId } });
-  const derived = deriveOrderStatus(fresh.map((item) => item.status as OrderStatus));
+
+  // Siparişin durumunu ÇİÇEĞİ hazırlayan kalemler belirler. Ek ürünler
+  // (çikolata, balon) çiçekle aynı pakete konduğu için akışı geciktirmez:
+  // paketi hazırlayan bayi ilerledikçe onlar da aynı duruma taşınır.
+  const governing = fresh.filter((item) => !item.isAddOn);
+  const derived = deriveOrderStatus(
+    (governing.length > 0 ? governing : fresh).map(
+      (item) => item.status as OrderStatus,
+    ),
+  );
 
   if (derived !== order.status) {
     const steps = pathTo(order.status as OrderStatus, derived) ?? [];
@@ -266,6 +283,10 @@ export async function sellerAdvanceItems({
       });
     }
     await db.order.update({ where: { id: orderId }, data: { status: derived } });
+    await db.orderItem.updateMany({
+      where: { orderId, isAddOn: true, status: { not: "IPTAL" } },
+      data: { status: derived },
+    });
     await syncDelivery(orderId, derived);
   } else {
     // Sipariş durumu değişmedi ama satıcı işini yaptı — geçmişe yine de yazalım.
@@ -316,6 +337,131 @@ export async function assignCourier({
     },
   });
 }
+
+/* ---------------------------- Arabaya verildi ----------------------------- */
+
+/**
+ * Bayi siparişi arabaya verdiğinde işaretlenir (madde 18). Sipariş bundan
+ * sonra kuryenin "işlem gören teslimatlar" listesine düşer; kurye kendisine
+ * atanmış ama henüz arabaya verilmemiş siparişleri "hazırlık bekliyor"
+ * bölümünde görür, boşuna yola çıkmaz.
+ */
+export async function markDispatched({
+  orderId,
+  sellerId,
+  actor,
+}: {
+  orderId: string;
+  sellerId: string | null;
+  actor: string;
+}) {
+  const delivery = await db.delivery.findUnique({ where: { orderId } });
+  if (!delivery) throw new Error("Teslimat kaydı bulunamadı");
+
+  if (!delivery.dispatchedAt) {
+    await db.delivery.update({
+      where: { orderId },
+      data: { dispatchedAt: new Date() },
+    });
+    await db.orderEvent.create({
+      data: {
+        orderId,
+        status: (await db.order.findUnique({ where: { id: orderId } }))!.status,
+        label: "Sipariş arabaya verildi",
+        actor,
+      },
+    });
+  }
+
+  // Arabaya veriliş, kalemleri "Yolda"ya taşır: satıcının işi burada biter.
+  if (sellerId) {
+    await sellerAdvanceItems({ orderId, sellerId, target: "YOLDA", actor });
+  } else {
+    await applyStatus(orderId, "YOLDA", actor);
+  }
+}
+
+/* --------------------------- Hazırlık görseli ----------------------------- */
+
+/** Satıcı buketin fotoğrafını yükler; müşteri takip ekranında görür (madde 22). */
+export async function addPreparationPhoto({
+  orderId,
+  sellerId,
+  imageUrl,
+  note,
+  actor,
+}: {
+  orderId: string;
+  sellerId: string;
+  imageUrl: string;
+  note: string | null;
+  actor: string;
+}) {
+  const photo = await db.preparationPhoto.create({
+    data: { orderId, sellerId, imageUrl, note },
+  });
+
+  const order = await db.order.findUnique({ where: { id: orderId } });
+  if (order) {
+    await db.orderEvent.create({
+      data: {
+        orderId,
+        status: order.status,
+        label: "Hazırlık onay görseli eklendi",
+        actor,
+      },
+    });
+  }
+
+  return photo;
+}
+
+/* ---------------------------- Ödeme hatırlatma ---------------------------- */
+
+/**
+ * Bilgilerini yazıp ödemede takılan müşteriye hatırlatma (madde 14).
+ *
+ * Demo'da gerçek SMS/e-posta gönderilmez; hatırlatmanın gittiği kayda geçer ve
+ * müşteri, sipariş takip ekranında ödemeyi tamamlama bağlantısını görür.
+ */
+export async function sendPaymentReminder({
+  orderId,
+  actor,
+}: {
+  orderId: string;
+  actor: string;
+}) {
+  const order = await db.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new Error("Sipariş bulunamadı");
+  if (order.paymentStatus === "ODENDI") {
+    throw new Error("Bu siparişin ödemesi zaten alınmış.");
+  }
+  if (order.status === "IPTAL") {
+    throw new Error("İptal edilmiş siparişe hatırlatma gönderilemez.");
+  }
+
+  const updated = await db.order.update({
+    where: { id: orderId },
+    data: { reminderCount: { increment: 1 }, lastReminderAt: new Date() },
+  });
+
+  await db.orderEvent.create({
+    data: {
+      orderId,
+      status: order.status,
+      label: `Ödeme hatırlatması gönderildi (${updated.reminderCount}. kez)`,
+      actor,
+    },
+  });
+
+  return updated;
+}
+
+/** Ödemesi yarım kalmış, hâlâ kurtarılabilir siparişler. */
+export const ABANDONED_FILTER = {
+  paymentStatus: { in: ["BEKLIYOR", "BASARISIZ"] },
+  status: { notIn: ["IPTAL", "TESLIM_EDILDI"] },
+};
 
 /* --------------------------------- İptal ---------------------------------- */
 

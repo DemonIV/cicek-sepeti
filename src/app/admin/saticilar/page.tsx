@@ -8,7 +8,11 @@ import {
   CommissionEditor,
   SellerStatusToggle,
 } from "@/components/panel/AdminControls";
+import { LateScanButton } from "@/components/panel/SellerControls";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
+import { scoreBand } from "@/lib/seller-score";
 
 export const metadata: Metadata = { title: "Satıcı yönetimi" };
 
@@ -16,7 +20,8 @@ export default async function AdminSellersPage() {
   const sellers = await db.seller.findMany({
     include: {
       user: true,
-      _count: { select: { products: true } },
+      accountManager: true,
+      _count: { select: { products: true, areas: true } },
       items: {
         where: { status: { not: "IPTAL" }, order: { paymentStatus: "ODENDI" } },
         select: { unitPrice: true, quantity: true, commissionRate: true },
@@ -29,7 +34,8 @@ export default async function AdminSellersPage() {
     <>
       <PanelHeader
         title="Satıcı yönetimi"
-        description="Komisyon oranı satır üzerinde değiştirilir. Değişiklik yalnızca yeni siparişlere uygulanır; geçmiş kalemler kendi oranını korur."
+        description="Komisyon oranı satır üzerinde değiştirilir. Bölge eşleşmesi, kota, puan ve sorumlu ataması için bayinin künyesini aç."
+        actions={<LateScanButton />}
       />
 
       {sellers.length === 0 ? (
@@ -45,12 +51,15 @@ export default async function AdminSellersPage() {
                 <tr>
                   <th>Mağaza</th>
                   <th>Şehir</th>
-                  <th>Yetkili</th>
+                  <th>Sorumlu</th>
+                  <th>Bölge</th>
+                  <th>Puan</th>
                   <th>Ürün</th>
                   <th>Ciro</th>
                   <th>Platform geliri</th>
                   <th>Komisyon</th>
                   <th>Durum</th>
+                  <th className="text-right">Künye</th>
                 </tr>
               </thead>
               <tbody>
@@ -73,8 +82,33 @@ export default async function AdminSellersPage() {
                           </span>
                         )}
                       </td>
-                      <td className="text-muted">{seller.city}</td>
-                      <td className="text-muted">{seller.user.name}</td>
+                      <td className="text-muted">
+                        {seller.city}
+                        {!seller.acceptingOrders && (
+                          <span className="mt-1 block text-[11px] font-semibold text-[#9c2f2a]">
+                            Sipariş alımı kapalı
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-muted">
+                        {seller.accountManager?.name ?? "—"}
+                        <span className="block text-[11px] text-faint">
+                          {seller.user.name}
+                        </span>
+                      </td>
+                      <td className="tabular text-muted">
+                        {seller._count.areas}
+                      </td>
+                      <td>
+                        {(() => {
+                          const band = scoreBand(seller.score);
+                          return (
+                            <Badge tone={band.tone} dot>
+                              {seller.score}
+                            </Badge>
+                          );
+                        })()}
+                      </td>
                       <td className="tabular">{seller._count.products}</td>
                       <td className="tabular font-semibold">
                         {formatPrice(totals.gross)}
@@ -93,6 +127,17 @@ export default async function AdminSellersPage() {
                           sellerId={seller.id}
                           status={seller.status}
                         />
+                      </td>
+                      <td>
+                        <div className="flex justify-end">
+                          <Link
+                            href={`/admin/saticilar/${seller.id}`}
+                            className="btn btn-outline btn-sm"
+                          >
+                            <Icon name="store" size={14} />
+                            A&ccedil;
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

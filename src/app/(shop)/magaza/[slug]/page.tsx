@@ -25,7 +25,7 @@ export default async function StorePage({ params }: { params: Params }) {
     where: { slug },
     include: {
       products: {
-        where: { isActive: true },
+        where: { isActive: true, isAddOn: false },
         include: { seller: true },
         orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
       },

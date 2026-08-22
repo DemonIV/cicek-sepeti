@@ -4,9 +4,10 @@ import { getCurrentSeller } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateShort, formatPercent, formatPrice } from "@/lib/format";
 import { summarizeEarnings } from "@/lib/pricing";
+import { scoreBand } from "@/lib/seller-score";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { StatCard } from "@/components/panel/StatCard";
-import { OrderStatusBadge } from "@/components/ui/Badge";
+import { Badge, OrderStatusBadge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 
@@ -19,8 +20,18 @@ export default async function SellerDashboard() {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [todayOrders, pendingOrders, paidItems, lowStock, recentOrders] =
-    await Promise.all([
+  const [
+    todayOrders,
+    pendingOrders,
+    paidItems,
+    lowStock,
+    recentOrders,
+    manager,
+    scoreEvents,
+    areaCount,
+    activeOrders,
+    todayDeliveries,
+  ] = await Promise.all([
       db.order.count({
         where: {
           createdAt: { gte: startOfToday },
@@ -52,9 +63,44 @@ export default async function SellerDashboard() {
         orderBy: { createdAt: "desc" },
         take: 6,
       }),
+      // Sorumlu kişi (madde 21)
+      seller.accountManagerId
+        ? db.user.findUnique({ where: { id: seller.accountManagerId } })
+        : null,
+      // Puan hareketleri (madde 17)
+      db.sellerScoreEvent.findMany({
+        where: { sellerId: seller.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      // Hizmet verilen mahalle sayısı (madde 15)
+      db.sellerArea.count({ where: { sellerId: seller.id } }),
+      // Kota kullanımı (madde 19)
+      db.order.count({
+        where: {
+          items: { some: { sellerId: seller.id } },
+          status: { in: ["ONAYLANDI", "HAZIRLANIYOR", "YOLDA"] },
+        },
+      }),
+      db.order.count({
+        where: {
+          items: { some: { sellerId: seller.id } },
+          deliveryDate: {
+            gte: startOfToday,
+            lte: new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000 - 1),
+          },
+        },
+      }),
     ]);
 
   const earnings = summarizeEarnings(paidItems);
+  const band = scoreBand(seller.score);
+  const dailyUsed = seller.dailyQuota
+    ? Math.min(100, Math.round((todayDeliveries / seller.dailyQuota) * 100))
+    : 0;
+  const activeUsed = seller.activeQuota
+    ? Math.min(100, Math.round((activeOrders / seller.activeQuota) * 100))
+    : 0;
 
   return (
     <>
@@ -62,12 +108,37 @@ export default async function SellerDashboard() {
         title="Genel bakış"
         description={`${seller.storeName} mağazasının bugünkü durumu. Komisyon oranın ${formatPercent(seller.commissionRate)}.`}
         actions={
-          <Link href="/satici/urunler/yeni" className="btn btn-primary btn-sm">
-            <Icon name="plus" size={15} />
-            Ürün ekle
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={band.tone} dot>
+              Hizmet puanı {seller.score} · {band.label}
+            </Badge>
+            {seller.acceptingOrders ? (
+              <Badge tone="leaf" dot>
+                Sipariş alımı açık
+              </Badge>
+            ) : (
+              <Badge tone="danger" dot>
+                Sipariş alımı durduruldu
+              </Badge>
+            )}
+          </div>
         }
       />
+
+      {/* Sipariş alımı kapalıysa bunu ilk satırda söyle (madde 16). */}
+      {!seller.acceptingOrders && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-[#f2c6c2] bg-[#fbe0dd] px-4 py-3.5">
+          <Icon name="alert" size={18} className="mt-0.5 flex-none text-[#9c2f2a]" />
+          <p className="text-[13px] leading-relaxed text-[#9c2f2a]">
+            <strong className="font-semibold">
+              Mağazan şu anda sipariş almıyor.
+            </strong>{" "}
+            {seller.pauseReason ?? "Operasyon ekibi tarafından durduruldu."}{" "}
+            Ürünlerin vitrinde görünmeye devam eder ama sepete eklenemez.
+            Yeniden açmak için sorumlunla görüş.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -95,6 +166,118 @@ export default async function SellerDashboard() {
           icon="alert"
           hint="5 adet ve altında kalan ürün"
         />
+      </div>
+
+      {/* ------------------- Sorumlu kişi, kota ve puan -------------------- */}
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-3">
+        {/* Sorumlu kişi (madde 21) */}
+        <section className="card card-pad">
+          <div className="flex items-center gap-2.5">
+            <Icon name="user" size={16} className="text-plum-500" />
+            <h2 className="text-[15px] font-semibold">Sorumlun</h2>
+          </div>
+          {manager ? (
+            <div className="mt-3">
+              <p className="text-[15px] font-semibold text-plum-950">
+                {manager.name}
+              </p>
+              <p className="text-[12.5px] text-muted">
+                {manager.title ?? "Operasyon ekibi"}
+              </p>
+              {manager.phone && (
+                <a
+                  href={`tel:${manager.phone.replace(/\s/g, "")}`}
+                  className="mono mt-3 inline-flex items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-[12.5px] font-semibold text-plum-900 hover:border-plum-300"
+                >
+                  <Icon name="phone" size={14} />
+                  {manager.phone}
+                </a>
+              )}
+              <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
+                Ürün, fiyat veya bölge değişikliği gerektiğinde arayacağın kişi.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 text-[13px] text-muted">
+              Henüz bir sorumlu atanmadı. Operasyon ekibi atadığında adı ve
+              numarası burada görünür.
+            </p>
+          )}
+        </section>
+
+        {/* Kotalar (madde 19) */}
+        <section className="card card-pad">
+          <div className="flex items-center gap-2.5">
+            <Icon name="chart" size={16} className="text-plum-500" />
+            <h2 className="text-[15px] font-semibold">Kotan</h2>
+          </div>
+
+          <div className="mt-3 space-y-4">
+            <QuotaBar
+              label="Bugünkü teslimat"
+              used={todayDeliveries}
+              quota={seller.dailyQuota}
+              percent={dailyUsed}
+            />
+            <QuotaBar
+              label="Açık sipariş"
+              used={activeOrders}
+              quota={seller.activeQuota}
+              percent={activeUsed}
+            />
+          </div>
+
+          <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
+            Kota dolduğunda operasyon ekibi yeni sipariş akışını durdurabilir.
+          </p>
+        </section>
+
+        {/* Puan hareketleri (madde 17) */}
+        <section className="card card-pad">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <Icon name="shield" size={16} className="text-plum-500" />
+              <h2 className="text-[15px] font-semibold">Hizmet puanın</h2>
+            </div>
+            <span className="tabular font-display text-[1.5rem] font-semibold leading-none text-plum-950">
+              {seller.score}
+            </span>
+          </div>
+
+          {scoreEvents.length === 0 ? (
+            <p className="mt-3 text-[13px] text-muted">
+              Puanını düşüren bir olay yok. 100 puanla devam ediyorsun.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2.5">
+              {scoreEvents.map((event) => (
+                <li key={event.id} className="flex gap-2.5 text-[12.5px]">
+                  <span
+                    className={`tabular mt-px w-8 flex-none text-right font-mono font-bold ${
+                      event.delta < 0 ? "text-[#9c2f2a]" : "text-plum-700"
+                    }`}
+                  >
+                    {event.delta > 0 ? `+${event.delta}` : event.delta}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block leading-snug text-plum-900">
+                      {event.reason}
+                    </span>
+                    <span className="block text-[11.5px] text-faint">
+                      {formatDateShort(event.createdAt)}
+                      {event.orderNo ? ` · ${event.orderNo}` : ""}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
+            {areaCount} mahalleye hizmet veriyorsun. Geciken her sipariş 5 puan
+            düşürür.
+          </p>
+        </section>
       </div>
 
       {/* items-start: kartlar birbirinin boyuna gerilmesin. Stok uyarısında tek
@@ -219,5 +402,37 @@ export default async function SellerDashboard() {
         </section>
       </div>
     </>
+  );
+}
+
+/** Kota kullanımı çubuğu — kota tanımlı değilse "sınırsız" yazar. */
+function QuotaBar({
+  label,
+  used,
+  quota,
+  percent,
+}: {
+  label: string;
+  used: number;
+  quota: number | null;
+  percent: number;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[12.5px] font-medium text-plum-900">{label}</span>
+        <span className="tabular font-mono text-[12px] text-muted">
+          {quota ? `${used} / ${quota}` : `${used} · sınırsız`}
+        </span>
+      </div>
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-plum-100">
+        <div
+          className={`h-full rounded-full ${
+            percent >= 90 ? "bg-bloom-600" : "bg-plum-500"
+          }`}
+          style={{ width: quota ? `${Math.max(4, percent)}%` : "0%" }}
+        />
+      </div>
+    </div>
   );
 }
