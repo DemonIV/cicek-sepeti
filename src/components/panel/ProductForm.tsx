@@ -22,6 +22,8 @@ export type ProductFormValues = {
   discountEndsAt: string;
   videoUrl: string;
   gallery: string;
+  /** Seçili gönderim amacı slug'ları. */
+  occasions: string[];
 };
 
 /**
@@ -34,6 +36,7 @@ export function ProductForm({
   action,
   categories,
   sellers,
+  occasions,
   initial,
   submitLabel,
 }: {
@@ -43,6 +46,7 @@ export function ProductForm({
   ) => Promise<ProductFormState>;
   categories: { id: string; name: string }[];
   sellers: { id: string; storeName: string; city: string }[];
+  occasions: { slug: string; name: string }[];
   initial: ProductFormValues;
   submitLabel: string;
 }) {
@@ -194,6 +198,37 @@ export function ProductForm({
               placeholder="/video/…"
             />
           </Field>
+        </div>
+
+        {/* --------------------------- Gönderim amacı -------------------------- */}
+        <div className="card card-pad space-y-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-plum-950">
+              Gönderim amacı
+            </h2>
+            <p className="mt-1 text-[12.5px] text-muted">
+              Ürün hangi niyetle aranıyorsa orada çıksın. Kategori ürünün ne
+              olduğunu, amaç niçin gönderildiğini söyler.
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {occasions.map((occasion) => (
+              <label
+                key={occasion.slug}
+                className="flex cursor-pointer items-center gap-2 text-[13px] text-plum-900"
+              >
+                <input
+                  type="checkbox"
+                  name="occasions"
+                  value={occasion.slug}
+                  defaultChecked={initial.occasions.includes(occasion.slug)}
+                  className="accent-[var(--color-plum-700)]"
+                />
+                {occasion.name}
+              </label>
+            ))}
+          </div>
         </div>
 
         {/* ------------------------------ İndirim ----------------------------- */}

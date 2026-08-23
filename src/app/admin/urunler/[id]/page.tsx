@@ -26,16 +26,20 @@ function toLocalInput(value: Date | null) {
 export default async function EditProductPage({ params }: { params: Params }) {
   const { id } = await params;
 
-  const [product, categories, sellers] = await Promise.all([
+  const [product, categories, sellers, occasions] = await Promise.all([
     db.product.findUnique({
       where: { id },
-      include: { media: { orderBy: { sortOrder: "asc" } } },
+      include: {
+        media: { orderBy: { sortOrder: "asc" } },
+        occasions: { include: { occasion: true } },
+      },
     }),
     db.category.findMany({ orderBy: { sortOrder: "asc" } }),
     db.seller.findMany({
       where: { status: "APPROVED" },
       orderBy: { storeName: "asc" },
     }),
+    db.occasion.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   if (!product) notFound();
@@ -59,6 +63,7 @@ export default async function EditProductPage({ params }: { params: Params }) {
         action={action}
         categories={categories}
         sellers={sellers}
+        occasions={occasions}
         submitLabel="Değişiklikleri kaydet"
         initial={{
           name: product.name,
@@ -76,6 +81,7 @@ export default async function EditProductPage({ params }: { params: Params }) {
           discountEndsAt: toLocalInput(product.discountEndsAt),
           videoUrl: product.videoUrl ?? "",
           gallery,
+          occasions: product.occasions.map((row) => row.occasion.slug),
         }}
       />
     </>

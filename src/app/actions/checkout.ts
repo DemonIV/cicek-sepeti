@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCartDetail, writeCart } from "@/lib/cart";
 import { createOrderFromCart, settlePayment } from "@/lib/orders";
 import { DELIVERY_SLOTS } from "@/lib/enums";
+import { isDeliverySlotAvailable } from "@/lib/delivery-time";
 import { db } from "@/lib/db";
 
 export type CheckoutState = {
@@ -57,6 +58,17 @@ export async function placeOrder(
   if (!deliveryDateRaw) errors.deliveryDate = "Teslimat tarihi seç.";
   if (!DELIVERY_SLOTS.includes(deliverySlot as (typeof DELIVERY_SLOTS)[number]))
     errors.deliverySlot = "Teslimat saati seç.";
+
+  // Aynı gün teslimatın bir kesim saati var (`lib/delivery-time.ts`): 18.00'den
+  // sonra bugüne, geçmiş bir saat aralığına sipariş alınmaz.
+  if (
+    deliveryDateRaw &&
+    !errors.deliverySlot &&
+    !isDeliverySlotAvailable(deliveryDateRaw, deliverySlot, new Date())
+  ) {
+    errors.deliverySlot =
+      "Bu gün ve saat için sipariş penceresi kapandı. Daha ileri bir zaman seç.";
+  }
 
   if (Object.keys(errors).length > 0) {
     return { errors, message: "Eksik alanlar var, aşağıda işaretledik." };

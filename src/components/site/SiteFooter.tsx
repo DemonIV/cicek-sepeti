@@ -34,6 +34,7 @@ export function SiteFooter() {
         <FooterColumn
           title="Platform"
           links={[
+            { href: "/satici-ol", label: "Satıcı ol" },
             { href: "/satici", label: "Satıcı paneli" },
             { href: "/kurye", label: "Kurye paneli" },
             { href: "/admin", label: "Admin paneli" },

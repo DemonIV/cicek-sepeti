@@ -21,7 +21,7 @@ export default async function AdminLayout({
     );
   }
 
-  const [applications, unassigned, pendingInvoices, productRequests] =
+  const [applications, unassigned, pendingInvoices, productRequests, lowReviews] =
     await Promise.all([
       db.seller.count({ where: { status: "PENDING" } }),
       db.order.count({
@@ -32,6 +32,7 @@ export default async function AdminLayout({
       }),
       db.invoice.count({ where: { status: "BEKLIYOR" } }),
       db.productRequest.count({ where: { status: "BEKLIYOR" } }),
+      db.review.count({ where: { rating: { lte: 2 }, isHidden: false } }),
     ]);
 
   return (
@@ -59,6 +60,12 @@ export default async function AdminLayout({
           label: "Ürün yönetimi",
           icon: "package",
           count: productRequests,
+        },
+        {
+          href: "/admin/yorumlar",
+          label: "Yorum yönetimi",
+          icon: "users",
+          count: lowReviews,
         },
         {
           href: "/admin/finans",

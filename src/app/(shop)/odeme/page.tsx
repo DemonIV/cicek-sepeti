@@ -11,6 +11,7 @@ import { lineTotal } from "@/lib/pricing";
 import { CheckoutForm } from "@/components/site/CheckoutForm";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { RoleGate } from "@/components/site/RoleGate";
+import { readDeliveryPreference } from "@/app/actions/delivery";
 
 export const metadata: Metadata = { title: "Teslimat bilgileri" };
 
@@ -35,18 +36,22 @@ export default async function CheckoutPage() {
     );
   }
 
-  const [addresses, areaTree, selectedArea] = await Promise.all([
+  const [addresses, areaTree, selectedArea, deliveryPref] = await Promise.all([
     db.address.findMany({
       where: { userId: user.id },
       orderBy: { isDefault: "desc" },
     }),
     getAreaTree(),
     getSelectedArea(),
+    readDeliveryPreference(),
   ]);
 
   // Varsayılan teslimat günü BUGÜN: aynı gün teslimat platformun ana vaadi ve
   // satıcı paneli "bugün" ile açıldığı için yeni sipariş oraya düşer (madde 3).
+  // Müşteri ürün sayfasında gün/saat seçtiyse o seçim buraya taşınır.
   const today = new Date();
+  const defaultDate = deliveryPref?.dateIso ?? isoDate(today);
+  const defaultSlot = deliveryPref?.slot;
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6">
@@ -78,7 +83,8 @@ export default async function CheckoutPage() {
           selectedAreaId={selectedArea?.id ?? null}
           slots={DELIVERY_SLOTS}
           customer={{ name: user.name, phone: user.phone }}
-          defaultDate={isoDate(today)}
+          defaultDate={defaultDate}
+          defaultSlot={defaultSlot}
           minDate={isoDate(new Date())}
         />
 

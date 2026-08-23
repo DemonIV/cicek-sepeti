@@ -7,8 +7,10 @@
 **Durum: 24 / 24 tamamlandı** (11. madde müşteri isteğiyle iptal edildi, 10. madde
 süreç notu — kod işi değil).
 
-> **Ek istek — 23 Ağustos 2026:** bayi kendi panelinden mağazasına ürün
-> ekleyebilsin, ürün admin onayından geçsin. Uygulandı; §G'ye bakın.
+> **Ek istekler — 23 Ağustos 2026:** (1) bayi kendi panelinden mağazasına ürün
+> ekleyebilsin, ürün admin onayından geçsin — §G. (2) Müşteri ürünlere bakmadan
+> önce adres seçsin, katalog o bölgeye göre gelsin — §H. (3) Çiçek Sepeti
+> incelemesinden gelen dört ekleme — §I. Hepsi uygulandı.
 
 ---
 
@@ -72,6 +74,41 @@ hâlâ değiştiremez, silemez; tek doğrudan yetkisi stok kapatma. Yeni ürün 
 bayiden gelebiliyor ama yayına çıkma kararı operasyonda. Onaydan sonraki her
 düzenleme yine `/admin/urunler/[id]` üzerinden yapılır.
 
+## H. Girişte adres seçimi (23 Ağustos 2026)
+
+| # | İstek | Durum | Nasıl uygulandı |
+| --- | --- | --- | --- |
+| 27 | Kişi ürünlere bakmak istediğinde **göndereceği veya bulunduğu konumdaki** çiçekleri görsün — bunun için **adres istensin** (örnek görsel: "Siparişin Nereye Gönderilecek?" penceresi) | [x] | Vitrine girişte açılan **adres seçimi penceresi**: bilgi bandı, arama kutusu ve **Kayıtlı Adresler** listesi. Arama mahalle adının yanı sıra **okul, hastane, plaza, AVM, üniversite, otel, istasyon** adlarını da tarar (yeni `Landmark` tablosu, 67 nokta) — müşteri mahalleyi bilmese de "Acıbadem Altunizade Hastanesi" yazıp bölgeyi seçer. Kayıtlı adresler `Address.neighborhoodId` ile mahalleye bağlandı. Seçilen bölge katalogu daraltır; hizmet veren çiçekçisi olmayan nokta "kapalı" görünür ve seçilemez. Pencere başlıktaki bölge düğmesinden tekrar açılır. |
+
+**Önceki 12. madde ile ilişkisi:** `/teslimat-bolgesi` sayfası (şehir → ilçe →
+mahalle ızgarası) duruyor; pencereden "Tüm mahalleleri gör" ile açılıyor. Yeni
+olan, girişte sorulması ve **noktadan** (okul/hastane/plaza) arama.
+
+## I. Çiçek Sepeti incelemesi (23 Ağustos 2026)
+
+Müşteri "çiçek sepetini incele, başka ne gibi bir şey olabilir" dedi. Gerçek
+site gezildi (ana sayfa, kategori, ürün detay, gönderim amacı) ve demoda
+karşılığı olmayan başlıklar çıkarıldı. Dördü uygulandı.
+
+| # | İstek | Durum | Nasıl uygulandı |
+| --- | --- | --- | --- |
+| 28 | **Gönderim amacı** ekseni — "ne için gönderiliyor?" | [x] | `Occasion` + `ProductOccasion` modelleri, 12 amaç. Ana sayfada yuvarlak şerit, katalogda filtre, ürün sayfasında çipler. Etiketleri admin ürün formu yönetir; ürün başına en fazla 4 amaç. |
+| 29 | **Ürün yorumları** | [x] | `Review` modeli (puan, metin, şehir, doğrulanmış alışveriş, satıcı cevabı, faydalı oyu, gizleme). Ürün sayfasında özet + dağılım + liste; `/satici/yorumlar` cevap yazma; `/admin/yorumlar` moderasyon. Ürün puanı **görünen** yorumlardan türetilir. |
+| 30 | **Satıcı ol** — vitrinden başvuru | [x] | `/satici-ol` sayfası ve formu; kayıt `PENDING` mağaza olarak `/admin/basvurular` ekranına düşer. Başlıkta ve altbilgide bağlantı. Böylece "bu başvurular nereden geliyor?" boşluğu kapandı. |
+| 31 | **Aynı gün teslimat** + ürün sayfasında gün/saat seçimi | [x] | `src/lib/delivery-time.ts`: kesim saati 18.00, gün çipleri (Bugün · Yarın · +2 · +3), o güne uygun saat aralıkları, geri sayım metni. Seçim çerezle ödeme adımına taşınır; ödeme eylemi de aynı kuralı doğrular. Katalog/ana sayfa kartlarında "Bugün teslim". |
+
+### Aynı gün gelen iki düzeltme
+
+| # | İstek | Durum | Nasıl uygulandı |
+| --- | --- | --- | --- |
+| 32 | Kategoriye basıldığında **adres formu gelsin**; ürünler o adrese yakın dükkanlardan olsun | [x] | Adres penceresi artık ürün listeleyen her yolda (`/kategori`, `/urunler`, `/magaza`, `/urun`) bölge seçili değilse kendiliğinden açılıyor — ilk girişteki "bir kez sor" kuralı bu sayfalarda geçerli değil. Ayrıca **kategori sayfası bölgeye göre daraltılmıyordu, düzeltildi**: artık yalnızca o mahalleye gönderim yapan çiçekçilerin ürünleri listeleniyor, başlıkta ve bantta bölge yazıyor, boş durumda "bölgeyi değiştir" çıkıyor. |
+| 33 | Tarih kısmında Bugün/Yarın'dan sonra **takvim** olsun, ileri tarih seçilebilsin | [x] | Hazır çipler üçe indi (Bugün · Yarın · ertesi gün), dördüncü hücre **Takvim**. Takvimden 60 güne kadar ileri tarih seçilir; seçilen gün çiplerin arasına eklenir ve o gün için bütün saat aralıkları açık gelir. Seçim yine ödeme adımına taşınır. |
+
+**Sırada bekleyen öneriler** (uygulanmadı, müşteri kararı bekliyor): favoriler
+ve "X kişinin favorisi" sosyal kanıtı, özel gün hatırlatıcı, kupon/kampanya
+kodu, kişiye özel (isim yazdırma, kart tasarımı), benzer ürün şeridi, teslimat
+ücreti kuralları, kurumsal (B2B) toplu gönderim.
+
 ---
 
 ## F. Süreç notu
@@ -100,6 +137,18 @@ düzenleme yine `/admin/urunler/[id]` üzerinden yapılır.
   ayrıca "önce taslak" adımı konmadı: sunumda tek tıkla vitrinde görünmesi
   akışı anlaşılır kılıyor. Fiyat/indirim gibi vitrin kararları başvuru formunda
   yok — onlar operasyonun işi, ürün formunda kalıyor.
+- **27** — adres seçimi **zorunlu değil**: "Şimdilik geç" pencereyi kapatır,
+  bir daha kendiliğinden açılmaz (`cicek_demo_bolge_soruldu` çerezi) ve katalog
+  daralmaz. Gerçek sistemde zorunlu tutulabilir; sunumu açan kişinin kapalı bir
+  kapıyla karşılaşmaması için böyle bırakıldı. Görseldeki yeşil/mavi renkler
+  yerine "Vitrin" paleti kullanıldı — düzen aynı, kimlik bizim.
+- **28** — amaç etiketleri seed'de kategori havuzundan üretiliyor; ürün başına
+  en fazla 4 amaç, yoksa filtre anlamını yitiriyor.
+- **29** — yorum metinleri kategoriye bağlı (`only` alanı): "teraryum küçük ama
+  şirin" yorumu gül buketinin altında görünmesin. Puan yorumlardan türetiliyor,
+  elle girilmiyor.
+- **31** — kesim saati **18.00** seçildi (gerçek sitede de büyük şehirlerde bu
+  civarda). Saat aralığı, bitişine bir saatten az kaldıysa kapanıyor.
 - **22 / 1 / 2** — dosya yükleme demo için tarayıcıda küçültülüp veritabanında
   saklanıyor; gerçek sistemde nesne deposu (S3/Blob) gerekir. Faturada PDF için
   yalnızca dosya bilgisi tutulur.

@@ -98,16 +98,25 @@ tıkla doğru role geçiren bir ara ekran çıkar.
 Bu 10 adım uçtan uca test edilmiştir (son test: 21 Ağustos 2026); hiçbir adımda
 hata, boş ekran veya kırık link yoktur.
 
-1. **Teslimat bölgesi.** Başlığın sağ üstündeki *"Nereye göndereceksin?"* →
-   İstanbul / Kadıköy / **Caferağa**. Katalog o mahalleye gönderilebilen ürünlere
-   daralır; başlıkta ve katalogda bölge yazar. (Bursa'yı seçmeyi de dene: o
-   şehrin bayisi hâlâ onay beklediği için mahalleler **kapalı** görünür.)
+1. **Adres seçimi.** Vitrine girildiğinde *"Siparişin nereye gönderilecek?"*
+   penceresi açılır. Arama kutusuna mahalle adı yazılabilir ama asıl gösterilecek
+   şey şu: **"hastane"** yaz → *Acıbadem Altunizade Hastanesi*, *Amerikan
+   Hastanesi* gibi noktalar mahalleleriyle listelenir; birini seç. Müşteri
+   hesabındaysan **kayıtlı adreslerinden** de seçebilirsin. Katalog o mahalleye
+   gönderilebilen ürünlere daralır; başlıkta ve katalogda bölge yazar. (Bursa'nın
+   noktalarını ara: o şehrin bayisi hâlâ onay beklediği için **kapalı** çıkar.)
+   Pencere zorunlu değil — *"Şimdilik geç"* ile kapatılabilir, katalog daralmaz.
 2. **Ürün seçimi.** Bir ürüne gir: galeride üç fotoğraf ve **tanıtım videosu**,
-   indirimliyse **geri sayım** ve üstü çizili liste fiyatı. Sepete ekle.
+   indirimliyse **geri sayım** ve üstü çizili liste fiyatı. Üstte ürünün
+   **gönderim amaçları** (Doğum Günü, Geçmiş Olsun…), altta **teslimat günü ve
+   saati** — *"Bugün teslim için son 2 sa 32 dk"* geri sayımıyla. Bugün + bir
+   saat aralığı seç, sonra sepete ekle. Sayfanın altında **yorumlar**: yıldız
+   dağılımı, doğrulanmış alışveriş işareti ve satıcı cevapları.
 3. **Ek ürün.** Aynı sayfada *"Yanında ne gitsin?"* şeridinden bir çikolata veya
    balon ekle. Ek ürün **Hediye Deposu**'ndan geldiği için sipariş kendiliğinden
    çok satıcılı olur — sepet bunu açıkça söyler.
-4. **Ödeme adımı.** Alıcı bilgisi, **şehir → ilçe → mahalle**, tarih ve saat,
+4. **Ödeme adımı.** Alıcı bilgisi, **şehir → ilçe → mahalle**; teslimat günü ve
+   saati ürün sayfasında seçtiğinle **dolu gelir**,
    **hediye notu** ve *"Kartın altına gönderici ismi yazılsın"* kutucuğu
    (işaretlenmezse kart imzasız gider). Ardından sahte kart ekranı ve **3D Secure
    simülasyonu** — bilinçli olarak *"Başarısız senaryoyu göster"* de seçilebilir;
@@ -139,6 +148,8 @@ hata, boş ekran veya kırık link yoktur.
   yükler, finans ekranında karşılığı anında görünür.
 - **Satıcı ürünleri** (`/satici/urunler`): bayi mevcut ürüne dokunamaz, yalnızca
   **stoğu kapatır**; kapattığı ürün vitrinde "satışa kapalı" olur.
+- **Adresi değiştirme:** başlıktaki bölge düğmesi pencereyi yeniden açar;
+  `/teslimat-bolgesi` sayfasında şehir → ilçe → mahalle ızgarasının tamamı var.
 - **Ürün başvurusu** (`/satici/urunler/basvuru` → `/admin/urunler/basvurular`):
   bayi mağazasına **yeni ürün önerir**, operasyon onaylayınca ürün vitrine
   çıkar; reddedilirse sebep bayinin panelinde görünür.
@@ -185,6 +196,90 @@ değiştiremez) korunarak eklendi:
 
 ---
 
+## 23 Ağustos 2026 — adres seçimi penceresi
+
+Müşteri isteği: *"kişi ürünlere bakmak istediğinde göndereceği veya bulunduğu
+konumdaki çiçekleri görmesini istiyoruz, o yüzden adres isteyeceğiz."*
+
+- Vitrine girişte **"Siparişin nereye gönderilecek?"** penceresi açılır; sonra
+  başlıktaki bölge düğmesinden tekrar açılabilir.
+- **Ürün listeleyen her sayfada** (kategori, katalog, mağaza, ürün) adres hâlâ
+  seçilmemişse pencere kendiliğinden gelir: "hangi ürünler sana gönderilebilir"
+  sorusunun cevabı adrese bağlı. Adres seçilince susar.
+- Seçim yapılınca **kategori sayfası da daralır** — o mahalleye gönderim yapan
+  çiçekçilerin ürünleri kalır, başlıkta ve bantta bölge yazar.
+- Arama yalnızca mahalle adını değil, **okul, hastane, plaza, AVM, üniversite,
+  otel ve istasyon** adlarını da tarar (`Landmark` tablosu, 67 nokta). Hangi
+  nokta seçilirse seçilsin sonuç bir **mahalledir** — teslimat bölgesi mahalle
+  üzerinden yürür.
+- Hizmet veren çiçekçisi olmayan noktalar listede **soluk ve "kapalı"** görünür,
+  seçilemez.
+- **Kayıtlı adresler** de listelenir: `Address.neighborhoodId` ile mahalleye
+  bağlıdır, tek tıkla bölge seçilir.
+- Seçim **zorunlu değil** (demo kararı): *"Şimdilik geç"* pencereyi kapatır ve
+  bir daha kendiliğinden açılmaz (`cicek_demo_bolge_soruldu` çerezi). Gerçek
+  sistemde bu adım zorunlu tutulabilir; sunumu açan kişi kapalı bir kapıyla
+  karşılaşmasın diye geçilebilir bırakıldı.
+
+---
+
+## 23 Ağustos 2026 — Çiçek Sepeti incelemesinden gelen dört ekleme
+
+Gerçek siteyle karşılaştırma yapıldı; demoda karşılığı olmayan dört başlık
+eklendi.
+
+### 1. Gönderim amacı — "ne için gönderiyorsun?"
+
+Kategori ürünün **ne olduğunu** söyler (buket, orkide); amaç **niçin
+gönderildiğini**. Müşteri çoğu zaman ikincisiyle gelir.
+
+- 12 amaç: Doğum Günü, Sevgiliye, Yıl Dönümü, Geçmiş Olsun, Yeni Doğan,
+  Söz & Nişan, Tebrik & Terfi, Açılış & Tören, Teşekkür, Özür Dilerim,
+  İçimden Geldi, Başsağlığı.
+- Ana sayfada yuvarlak şerit, katalogda **"Ne için gönderiliyor?"** filtresi,
+  ürün sayfasında tıklanabilir amaç çipleri.
+- Etiketleri operasyon yönetir (admin ürün formunda kutucuklar); bir ürün en
+  fazla dört amaca girer.
+
+### 2. Ürün yorumları
+
+Puan rakamı tek başına ikna etmiyordu; artık altında cümleler var.
+
+- Ürün sayfasında özet (ortalama + yıldız dağılımı) ve yorum listesi: maskeli
+  ad (`Z*** A***`), şehir, tarih, **doğrulanmış alışveriş** işareti, satıcı
+  cevabı ve **Faydalı** oyu.
+- **Satıcı** `/satici/yorumlar`: mağaza puanı, cevap bekleyenler, 3 yıldız ve
+  altı; yoruma cevap yazar.
+- **Operasyon** `/admin/yorumlar`: yorumu vitrinden kaldırır/geri alır. Bayi
+  kendi puanını düşüren yorumu silemez — yetki tek yerde.
+- Ürünün puanı ve değerlendirme sayısı **görünen yorumlardan** türetilir; bir
+  yorum gizlenince puan yeniden hesaplanır.
+
+### 3. Satıcı ol — vitrinden başvuru
+
+Admin panelindeki başvuru listesi doluydu ama başvurunun nereden geldiği
+belirsizdi. `/satici-ol` o halkayı kapatır: çiçekçi mağaza künyesini gönderir,
+kayıt `PENDING` mağaza olarak admin ekranına düşer, onaylanınca satıcı paneli
+açılır. Başlıkta ve altbilgide bağlantısı var.
+
+### 4. Aynı gün teslimat ve gün/saat seçimi
+
+- Ürün sayfasında **Bugün · Yarın · ertesi gün · Takvim** çipleri ve saat
+  aralıkları;
+  üstünde geri sayım: *"Bugün teslim için son 2 sa 32 dk"*.
+- Kesim saati **18.00** (`SAME_DAY_CUTOFF_HOUR`). Sonrasında bugün seçilemez;
+  aynı gün için geçmiş saat aralıkları üstü çizili gelir.
+- Seçim çerezde taşınır: ödeme adımı gün ve saat **dolu** açılır. Ödeme
+  eylemi de aynı kuralı doğrular — kapanmış pencereye sipariş geçmez.
+- **Takvim** düğmesi ileri tarihleri açar (60 güne kadar): doğum günü, yıl
+  dönümü gibi planlı gönderimler. Seçilen tarih çiplerin arasına yerleşir,
+  ileri tarihte bütün saat aralıkları açıktır.
+- Katalog, kategori ve ana sayfa kartlarında pencere açıkken **"Bugün teslim"**
+  yazar.
+- Hesap tek yerde: `src/lib/delivery-time.ts`.
+
+---
+
 ## Ekranlar
 
 **Müşteri**
@@ -193,10 +288,11 @@ değiştiremez) korunarak eklendi:
 | --- | --- |
 | `/` | Ana sayfa: haftanın ürünü, indirimdekiler, öne çıkanlar, kategoriler, çiçekçiler |
 | `/teslimat-bolgesi` | Şehir → ilçe → mahalle seçimi; katalog buna göre daralır |
-| `/urunler` | Katalog: koleksiyon, kategori, satıcı, fiyat filtresi ve sıralama |
+| `/satici-ol` | Çiçekçi başvuru formu — admin başvuru ekranına düşer |
+| `/urunler` | Katalog: **gönderim amacı**, koleksiyon, kategori, satıcı, fiyat filtresi ve sıralama |
 | `/kategori/[slug]` | Kategori listesi |
 | `/magaza/[slug]` | Mağaza vitrini |
-| `/urun/[slug]` | Ürün detayı: galeri (3+ fotoğraf, video), indirim geri sayımı, ek ürünler |
+| `/urun/[slug]` | Ürün detayı: galeri (3+ fotoğraf, video), **teslimat günü/saati**, indirim geri sayımı, ek ürünler, **yorumlar** |
 | `/sepet` | Sepet — mağazaya göre gruplu, ek ürün şeridi |
 | `/odeme` | Teslimat bilgileri, şehir/ilçe/mahalle, hediye notu + gönderici ismi |
 | `/odeme/[siparisNo]` | Sahte kart ekranı + 3D Secure simülasyonu |
@@ -211,6 +307,7 @@ değiştiremez) korunarak eklendi:
 | `/satici/urunler` | Ürünlerim — okunur; **stoğu kapat/aç** + kendi **ürün başvuruları** |
 | `/satici/urunler/basvuru` | Yeni ürün başvurusu (onaya gider) |
 | `/satici/siparisler` | Kendi kalemleri; **teslimat tarihine göre**, bugünle açılır |
+| `/satici/yorumlar` | Mağaza puanı, cevap bekleyen yorumlar, cevap yazma |
 | `/satici/kazanc` | Komisyon düşülmüş kazanç dökümü |
 | `/satici/faturalar` | Fatura yükleme ve inceleme durumu |
 | `/kurye` | Atanan teslimatlar: **işlem gören** ve **çiçekçi hazırlığında** |
@@ -223,6 +320,7 @@ değiştiremez) korunarak eklendi:
 | `/admin/siparisler` | Tüm siparişler, filtre, kurye atama |
 | `/admin/urunler` | Tüm ürünler; **ürün ekleme/düzenleme burada** (galeri, indirim) |
 | `/admin/urunler/basvurular` | Bayilerin ürün başvuruları: onayla ve yayına al / reddet |
+| `/admin/yorumlar` | Yorum moderasyonu: vitrinden kaldır / geri al |
 | `/admin/finans` | Finans ve raporlar: hakedişler, faturalar, yarım kalan ödemeler |
 | `/admin/kayitlar` | İşlem kayıtları (denetim izi) |
 | `/mobil-onizleme` | Müşteri arayüzü telefon çerçevesi içinde |
@@ -243,6 +341,12 @@ değiştiremez) korunarak eklendi:
   stokta az
 - **55 mahalle** ve bayi ↔ mahalle eşleşmeleri; her bayi kendi şehrinin bir
   bölümüne hizmet verir, Hediye Deposu her yere kargolar
+- **12 gönderim amacı** ve ürünlere dağıtılmış ~90 etiket (ürün başına en çok 4)
+- **~365 ürün yorumu** — puanlar karışık, bir kısmı satıcı cevaplı; ürünün
+  puanı bu yorumlardan hesaplanır
+- **67 adres noktası** (okul, hastane, plaza, AVM, üniversite, otel, istasyon) —
+  adres penceresindeki arama bunları da bulur; müşterilerin kayıtlı adresleri
+  mahalleye bağlıdır
 - **8 zamanlı indirim** (biri gelecek tarihli, yani "planlandı") ve bir
   **haftanın ürünü**
 - Her üründe **en az 3 galeri görseli**; 4 üründe `public/video/` altında

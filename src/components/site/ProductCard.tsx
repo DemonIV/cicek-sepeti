@@ -32,9 +32,12 @@ const CARD_SIZES =
 export function ProductCard({
   product,
   priority = false,
+  sameDay = false,
 }: {
   product: ProductCardData;
   priority?: boolean;
+  /** Aynı gün teslimat penceresi açıksa kartta söylenir. */
+  sameDay?: boolean;
 }) {
   const soldOut = product.stock <= 0;
   const low = !soldOut && product.stock <= 5;
@@ -84,6 +87,11 @@ export function ProductCard({
       </div>
 
       <div className="flex flex-1 flex-col p-2.5 sm:p-3">
+        {sameDay && !soldOut && (
+          <p className="mb-1 text-[10.5px] font-semibold text-fern-700">
+            Bugün teslim
+          </p>
+        )}
         <p className="truncate font-mono text-[9.5px] uppercase tracking-[0.11em] text-faint">
           {product.seller.storeName} · {product.seller.city}
         </p>

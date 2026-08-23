@@ -164,3 +164,27 @@ export const PRODUCT_REQUEST_STATUS_META: Record<
   ONAYLANDI: { label: "Onaylandı · yayında", tone: "leaf" },
   REDDEDILDI: { label: "Reddedildi", tone: "danger" },
 };
+
+/* ---------------------------- Adres noktaları ----------------------------- */
+/* Müşteri mahalle adını bilmeyebilir; okulu, hastaneyi, plazayı bilir. */
+
+export const LANDMARK_KINDS = [
+  "OKUL",
+  "HASTANE",
+  "PLAZA",
+  "AVM",
+  "UNIVERSITE",
+  "OTEL",
+  "ISTASYON",
+] as const;
+export type LandmarkKind = (typeof LANDMARK_KINDS)[number];
+
+export const LANDMARK_KIND_LABEL: Record<LandmarkKind, string> = {
+  OKUL: "Okul",
+  HASTANE: "Hastane",
+  PLAZA: "Plaza",
+  AVM: "AVM",
+  UNIVERSITE: "Üniversite",
+  OTEL: "Otel",
+  ISTASYON: "İstasyon",
+};

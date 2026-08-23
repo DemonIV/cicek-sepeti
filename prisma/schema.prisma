@@ -43,10 +43,15 @@ model Address {
   district    String
   fullAddress String
   isDefault   Boolean @default(false)
+  /// Adresin düştüğü mahalle — kayıtlı adres seçilince teslimat bölgesi
+  /// bundan belirlenir.
+  neighborhoodId String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  neighborhood Neighborhood? @relation(fields: [neighborhoodId], references: [id])
 
   @@index([userId])
+  @@index([neighborhoodId])
 }
 
 model Seller {
@@ -83,6 +88,7 @@ model Seller {
   accountManager User?              @relation("AccountManager", fields: [accountManagerId], references: [id])
   products       Product[]
   items          OrderItem[]
+  reviews        Review[]
   areas          SellerArea[]
   scoreEvents    SellerScoreEvent[]
   invoices       Invoice[]
@@ -103,8 +109,10 @@ model Neighborhood {
   slug      String @unique
   sortOrder Int    @default(0)
 
-  sellers SellerArea[]
-  orders  Order[]
+  sellers   SellerArea[]
+  orders    Order[]
+  addresses Address[]
+  landmarks Landmark[]
 
   @@index([city])
   @@index([city, district])
@@ -121,6 +129,21 @@ model SellerArea {
   neighborhood Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
 
   @@unique([sellerId, neighborhoodId])
+  @@index([neighborhoodId])
+}
+
+/// Adres aramasında çıkan tanınmış nokta: okul, hastane, plaza, AVM…
+///
+/// Müşteri mahallenin adını bilmeyebilir ama "Acıbadem Hastanesi"ni bilir.
+/// Aranan nokta bağlı olduğu mahalleyi seçtirir.
+model Landmark {
+  id             String @id @default(cuid())
+  name           String
+  kind           String // OKUL | HASTANE | PLAZA | AVM | UNIVERSITE | OTEL | ISTASYON
+  neighborhoodId String
+
+  neighborhood Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+
   @@index([neighborhoodId])
 }
 
@@ -187,10 +210,12 @@ model Product {
   /// Tanıtım videosu — galeride oynatılır.
   videoUrl String?
 
-  seller   Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category Category       @relation(fields: [categoryId], references: [id])
-  items    OrderItem[]
-  media    ProductMedia[]
+  seller    Seller            @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category  Category          @relation(fields: [categoryId], references: [id])
+  items     OrderItem[]
+  media     ProductMedia[]
+  occasions ProductOccasion[]
+  reviews   Review[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -232,6 +257,67 @@ model ProductRequest {
 
   @@index([sellerId])
   @@index([status])
+}
+
+/// Ürün değerlendirmesi.
+///
+/// Puan ve yorum sayısı ürünün üzerinde tutulmuyor: `Review` kayıtlarından
+/// türetilip `Product.rating` / `reviewCount` alanlarına yazılır, böylece
+/// katalog sorguları tek tablodan sıralamaya devam eder.
+model Review {
+  id        String @id @default(cuid())
+  productId String
+  sellerId  String
+  /// Yorumu yazan müşteri — vitrinde adı maskelenir ("Z*** A***").
+  authorName String
+  city       String
+  rating     Int // 1-5
+  comment    String
+  /// Sipariş üzerinden doğrulanmış alışveriş mi?
+  isVerified Boolean @default(true)
+  helpful    Int     @default(0)
+  /// Satıcının yoruma cevabı.
+  reply      String?
+  repliedAt  DateTime?
+  /// Operasyon gizlerse vitrinde görünmez.
+  isHidden   Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  seller  Seller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([sellerId])
+  @@index([isHidden])
+}
+
+/// Gönderim amacı — "ne için gönderiliyor" ekseni.
+///
+/// Kategori ürünün **ne olduğunu** söyler (buket, orkide); amaç ise **niçin
+/// gönderildiğini** (doğum günü, geçmiş olsun, tebrik). Müşteri çoğu zaman
+/// ikincisini arar, bu yüzden ayrı bir eksen.
+model Occasion {
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique
+  tagline   String?
+  imageUrl  String
+  sortOrder Int     @default(0)
+
+  products ProductOccasion[]
+}
+
+/// Ürün ↔ amaç eşleşmesi. Bir buket hem doğum günü hem teşekkür olabilir.
+model ProductOccasion {
+  id         String @id @default(cuid())
+  productId  String
+  occasionId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  occasion Occasion @relation(fields: [occasionId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, occasionId])
+  @@index([occasionId])
 }
 
 /// Ürün galerisi — en az 3 fotoğraf, isteğe bağlı video.

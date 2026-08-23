@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
 import { findCollection } from "@/lib/collections";
 import { areaFilter, getSelectedArea, areaLabel } from "@/lib/delivery-area";
+import { sameDayAvailable } from "@/lib/delivery-time";
 
 export const metadata: Metadata = { title: "Tüm ürünler" };
 
@@ -25,11 +26,14 @@ export default async function CatalogPage({
   const q = first(params.q)?.trim() ?? "";
   const categorySlug = first(params.kategori) ?? "";
   const sellerSlug = first(params.satici) ?? "";
+  const occasionSlug = first(params.amac) ?? "";
   const maxPrice = Number(first(params.maxFiyat)) || 0;
   const sort = first(params.sirala) ?? "onerilen";
   const collection = findCollection(first(params.koleksiyon));
 
   const now = new Date();
+  // Aynı gün teslimat penceresi açıksa kartlarda söylenir (`delivery-time.ts`).
+  const sameDayOpen = sameDayAvailable(now);
   // Bölge seçiliyse yalnızca oraya gönderilebilen ürünler listelenir (madde 12).
   const [area, byArea] = await Promise.all([getSelectedArea(), areaFilter()]);
 
@@ -55,6 +59,9 @@ export default async function CatalogPage({
       ...(byArea.seller ?? {}),
     },
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
+    ...(occasionSlug
+      ? { occasions: { some: { occasion: { slug: occasionSlug } } } }
+      : {}),
     ...(maxPrice ? { price: { lte: maxPrice } } : {}),
     ...(collection ? collection.where(now) : {}),
     ...(q
@@ -64,7 +71,7 @@ export default async function CatalogPage({
       : {}),
   };
 
-  const [products, categories, sellers, bounds] = await Promise.all([
+  const [products, categories, occasions, sellers, bounds] = await Promise.all([
     db.product.findMany({ where, include: { seller: true }, orderBy }),
     // Kenar çubuğundaki sayılar da bölgeyi izler: seçili mahalleye gönderim
     // yapmayan bir satıcı listede durup boş sonuç vermemeli.
@@ -79,6 +86,23 @@ export default async function CatalogPage({
                 isActive: true,
                 isAddOn: false,
                 seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
+              },
+            },
+          },
+        },
+      },
+    }),
+    db.occasion.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        _count: {
+          select: {
+            products: {
+              where: {
+                product: {
+                  isActive: true,
+                  seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
+                },
               },
             },
           },
@@ -111,6 +135,7 @@ export default async function CatalogPage({
   };
 
   const activeCategory = categories.find((c) => c.slug === categorySlug);
+  const activeOccasion = occasions.find((o) => o.slug === occasionSlug);
   const activeSeller = sellers.find((s) => s.slug === sellerSlug);
 
   const filters = (
@@ -125,6 +150,13 @@ export default async function CatalogPage({
           label: c.name,
           hint: String(c._count.products),
         }))}
+        occasions={occasions
+          .filter((o) => o._count.products > 0)
+          .map((o) => ({
+            value: o.slug,
+            label: o.name,
+            hint: String(o._count.products),
+          }))}
         sellers={sellers.map((s) => ({
           value: s.slug,
           label: s.storeName,
@@ -142,13 +174,15 @@ export default async function CatalogPage({
           {q
             ? `“${q}” için sonuçlar`
             : (collection?.label ??
+              activeOccasion?.name ??
               activeCategory?.name ??
               activeSeller?.storeName ??
               "Tüm ürünler")}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
           {collection?.tagline ??
-            "Onaylı çiçekçilerin vitrindeki ürünleri. Fiyat, kategori ve satıcıya göre daraltabilirsin."}
+            activeOccasion?.tagline ??
+            "Onaylı çiçekçilerin vitrindeki ürünleri. Amaç, kategori, fiyat ve satıcıya göre daraltabilirsin."}
         </p>
 
         {area && (
@@ -213,6 +247,7 @@ export default async function CatalogPage({
                   key={product.id}
                   product={product}
                   priority={index < 6}
+                  sameDay={sameDayOpen}
                 />
               ))}
             </div>

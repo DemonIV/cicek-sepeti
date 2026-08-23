@@ -15,11 +15,14 @@ export const SORT_OPTIONS: FilterOption[] = [
 
 export function CatalogFilters({
   categories,
+  occasions,
   sellers,
   priceBounds,
   total,
 }: {
   categories: FilterOption[];
+  /** Gönderim amacı — "ne için": doğum günü, geçmiş olsun, tebrik… */
+  occasions: FilterOption[];
   sellers: FilterOption[];
   priceBounds: { min: number; max: number };
   total: number;
@@ -42,6 +45,7 @@ export function CatalogFilters({
 
   const active = {
     kategori: params.get("kategori") ?? "",
+    amac: params.get("amac") ?? "",
     satici: params.get("satici") ?? "",
     maxFiyat: params.get("maxFiyat") ?? "",
     sirala: params.get("sirala") ?? "onerilen",
@@ -49,7 +53,11 @@ export function CatalogFilters({
   };
 
   const hasFilter =
-    active.kategori || active.satici || active.maxFiyat || active.q;
+    active.kategori ||
+    active.amac ||
+    active.satici ||
+    active.maxFiyat ||
+    active.q;
 
   return (
     <div
@@ -73,6 +81,25 @@ export function CatalogFilters({
       <p className="tabular py-3 text-xs text-muted">
         {total} ürün listeleniyor
       </p>
+
+      <FilterGroup label="Ne için gönderiliyor?">
+        <OptionButton
+          label="Fark etmez"
+          selected={!active.amac}
+          onClick={() => update("amac", null)}
+        />
+        {occasions.map((option) => (
+          <OptionButton
+            key={option.value}
+            label={option.label}
+            hint={option.hint}
+            selected={active.amac === option.value}
+            onClick={() =>
+              update("amac", active.amac === option.value ? null : option.value)
+            }
+          />
+        ))}
+      </FilterGroup>
 
       <FilterGroup label="Kategori">
         <OptionButton

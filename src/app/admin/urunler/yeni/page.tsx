@@ -7,12 +7,13 @@ import { ProductForm } from "@/components/panel/ProductForm";
 export const metadata: Metadata = { title: "Yeni ürün" };
 
 export default async function NewProductPage() {
-  const [categories, sellers] = await Promise.all([
+  const [categories, sellers, occasions] = await Promise.all([
     db.category.findMany({ orderBy: { sortOrder: "asc" } }),
     db.seller.findMany({
       where: { status: "APPROVED" },
       orderBy: { storeName: "asc" },
     }),
+    db.occasion.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   return (
@@ -25,6 +26,7 @@ export default async function NewProductPage() {
         action={createProduct}
         categories={categories}
         sellers={sellers}
+        occasions={occasions}
         submitLabel="Ürünü yayına al"
         initial={{
           name: "",
@@ -42,6 +44,7 @@ export default async function NewProductPage() {
           discountEndsAt: "",
           videoUrl: "",
           gallery: "",
+          occasions: [],
         }}
       />
     </>

@@ -15,6 +15,16 @@ import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/pricing";
 import { ADDON_KIND_LABEL, DELIVERY_SLOTS, type AddOnKind } from "@/lib/enums";
 import { priceInfo } from "@/lib/discount";
 import { getSelectedArea, sellerServesSelectedArea, areaLabel } from "@/lib/delivery-area";
+import { ProductReviews } from "@/components/site/ProductReviews";
+import { productReviews } from "@/lib/reviews";
+import { DeliveryDayPicker } from "@/components/site/DeliveryDayPicker";
+import {
+  deliveryDayOptions,
+  maxDeliveryDate,
+  sameDayPromise,
+  slotsForDate,
+} from "@/lib/delivery-time";
+import { readDeliveryPreference } from "@/app/actions/delivery";
 
 type Params = Promise<{ slug: string }>;
 
@@ -25,6 +35,7 @@ async function loadProduct(slug: string) {
       seller: true,
       category: true,
       media: { orderBy: { sortOrder: "asc" } },
+      occasions: { include: { occasion: true } },
     },
   });
 }
@@ -47,7 +58,8 @@ export default async function ProductPage({ params }: { params: Params }) {
     notFound();
   }
 
-  const [related, addOns, area, servesArea] = await Promise.all([
+  const [related, addOns, area, servesArea, reviews, deliveryPref] =
+    await Promise.all([
     db.product.findMany({
       where: {
         categoryId: product.categoryId,
@@ -70,7 +82,17 @@ export default async function ProductPage({ params }: { params: Params }) {
         }),
     getSelectedArea(),
     sellerServesSelectedArea(product.sellerId),
+    productReviews(product.id),
+    readDeliveryPreference(),
   ]);
+
+  // Aynı gün teslimat penceresi ve saat aralıkları tek yerden gelir
+  // (`lib/delivery-time.ts`); ödeme adımı da aynı hesabı kullanır.
+  const now = new Date();
+  const dayOptions = deliveryDayOptions(now);
+  const slotsByDay = Object.fromEntries(
+    dayOptions.map((day) => [day.value, slotsForDate(day.value, now)]),
+  );
 
   const price = priceInfo(product);
   const low = product.stock > 0 && product.stock <= 5;
@@ -135,6 +157,22 @@ export default async function ProductPage({ params }: { params: Params }) {
             {product.name}
           </h1>
 
+          {/* Gönderim amaçları: aynı niyetle arayan müşteriyi listeye götürür */}
+          {product.occasions.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-[12px] text-faint">Ne için:</span>
+              {product.occasions.map(({ occasion }) => (
+                <Link
+                  key={occasion.id}
+                  href={`/urunler?amac=${occasion.slug}`}
+                  className="rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] font-medium text-plum-800 transition-colors hover:border-bloom-400 hover:text-bloom-700"
+                >
+                  {occasion.name}
+                </Link>
+              ))}
+            </div>
+          )}
+
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <p className="tabular font-display text-[2rem] font-semibold leading-none text-bloom-700">
               {formatPrice(price.price)}
@@ -197,6 +235,19 @@ export default async function ProductPage({ params }: { params: Params }) {
             </p>
           )}
 
+          {!closed && (
+            <div className="mt-6">
+              <DeliveryDayPicker
+                days={dayOptions}
+                slots={slotsByDay}
+                allSlots={[...DELIVERY_SLOTS]}
+                promise={sameDayPromise(now)}
+                initial={deliveryPref}
+                maxDate={maxDeliveryDate(now)}
+              />
+            </div>
+          )}
+
           {closed ? (
             <div className="mt-6 rounded-lg border border-line bg-plum-50 px-4 py-3.5">
               <p className="text-sm font-semibold text-plum-900">
@@ -250,6 +301,28 @@ export default async function ProductPage({ params }: { params: Params }) {
           />
         </section>
       )}
+
+      {/* ------------------------------ Yorumlar ------------------------------ */}
+      <section className="mt-20">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="section-title">
+            Değerlendirmeler{" "}
+            {reviews.total > 0 && (
+              <span className="tabular font-normal text-muted">
+                ({reviews.total})
+              </span>
+            )}
+          </h2>
+        </div>
+        <div className="mt-6">
+          <ProductReviews
+            reviews={reviews.reviews}
+            total={reviews.total}
+            average={reviews.average}
+            breakdown={reviews.breakdown}
+          />
+        </div>
+      </section>
 
       {related.length > 0 && (
         <section className="mt-20">

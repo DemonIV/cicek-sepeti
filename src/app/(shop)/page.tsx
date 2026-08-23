@@ -9,6 +9,7 @@ import { formatPrice, formatPriceShort } from "@/lib/format";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/pricing";
 import { activeDiscountWhere, priceInfo } from "@/lib/discount";
 import { areaFilter, getSelectedArea, areaLabel } from "@/lib/delivery-area";
+import { sameDayAvailable } from "@/lib/delivery-time";
 import { DiscountCountdown } from "@/components/site/DiscountCountdown";
 
 /**
@@ -28,6 +29,7 @@ const CAMPAIGN_SLUG = "kalp-kutuda-kirmizi-guller";
 
 export default async function HomePage() {
   const now = new Date();
+  const sameDayOpen = sameDayAvailable(now);
   // Bölge seçiliyse vitrin de daralır: gösterilen her ürün oraya gönderilebilir
   // (madde 12). Seçim yoksa filtre boş nesnedir, katalog daralmaz.
   const [area, byArea] = await Promise.all([getSelectedArea(), areaFilter()]);
@@ -42,6 +44,7 @@ export default async function HomePage() {
     featured,
     heroPicks,
     categories,
+    occasions,
     sellers,
     productCount,
     cityCount,
@@ -72,6 +75,12 @@ export default async function HomePage() {
     db.category.findMany({
       where: { isHidden: false },
       orderBy: { sortOrder: "asc" },
+    }),
+    db.occasion.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        _count: { select: { products: { where: { product: sellable } } } },
+      },
     }),
     db.seller.findMany({
       where: { status: "APPROVED" },
@@ -268,6 +277,40 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ------------------------------ Gönderim amacı ---------------------------- */}
+      {/* Kategori "ne", amaç "niçin". Müşteri çoğu zaman ikincisiyle geliyor:
+          doğum günü, geçmiş olsun, tebrik. */}
+      <section className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 md:pt-16">
+        <SectionHead
+          title="Ne için gönderiyorsun?"
+          action={{ href: "/urunler", label: "Tüm ürünler" }}
+        />
+
+        <div className="scroll-row mt-6 gap-5 sm:gap-7">
+          {occasions
+            .filter((occasion) => occasion._count.products > 0)
+            .map((occasion) => (
+              <Link
+                key={occasion.id}
+                href={`/urunler?amac=${occasion.slug}`}
+                className="group w-[5.5rem] shrink-0 text-center sm:w-[6.5rem]"
+              >
+                <div className="relative mx-auto size-[5.5rem] overflow-hidden rounded-full border border-line bg-plum-100 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-[var(--shadow-lift)] sm:size-[6.5rem]">
+                  <ProductImage
+                    src={occasion.imageUrl}
+                    alt={occasion.name}
+                    sizes="104px"
+                    className="transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <p className="mt-2.5 text-[12.5px] font-semibold leading-snug text-plum-950 transition-colors group-hover:text-bloom-700">
+                  {occasion.name}
+                </p>
+              </Link>
+            ))}
+        </div>
+      </section>
+
       {/* -------------------------------- Kategoriler ----------------------------- */}
       <section className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 md:pt-20">
         <SectionHead
@@ -384,7 +427,11 @@ export default async function HomePage() {
           />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:mt-8 md:grid-cols-4 lg:grid-cols-6">
             {liveDiscounts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                sameDay={sameDayOpen}
+              />
             ))}
           </div>
         </section>

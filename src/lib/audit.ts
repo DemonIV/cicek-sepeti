@@ -31,7 +31,9 @@ export type AuditAction =
   | "invoice.reject"
   | "invoice.upload"
   | "productRequest.approve"
-  | "productRequest.reject";
+  | "productRequest.reject"
+  | "review.hide"
+  | "review.show";
 
 export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "seller.approve": "Bayi onayı",
@@ -54,6 +56,8 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "invoice.upload": "Fatura yükleme",
   "productRequest.approve": "Ürün başvurusu onayı",
   "productRequest.reject": "Ürün başvurusu reddi",
+  "review.hide": "Yorum gizleme",
+  "review.show": "Yorum yayına alma",
 };
 
 export async function logAudit({

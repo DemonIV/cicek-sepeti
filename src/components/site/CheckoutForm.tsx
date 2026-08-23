@@ -26,6 +26,7 @@ export function CheckoutForm({
   areaTree,
   selectedAreaId,
   slots,
+  defaultSlot,
   customer,
   defaultDate,
   minDate,
@@ -35,6 +36,8 @@ export function CheckoutForm({
   areaTree: AreaTree;
   selectedAreaId: string | null;
   slots: readonly string[];
+  /** Ürün sayfasında seçilen saat aralığı — varsa ön dolu gelir. */
+  defaultSlot?: string;
   customer: { name: string; phone: string | null };
   defaultDate: string;
   minDate: string;
@@ -284,7 +287,7 @@ export function CheckoutForm({
             <select
               name="deliverySlot"
               className="field"
-              defaultValue={slots[1]}
+              defaultValue={defaultSlot ?? slots[1]}
             >
               {slots.map((slot) => (
                 <option key={slot} value={slot}>

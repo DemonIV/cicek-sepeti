@@ -508,6 +508,24 @@ function validate(data: FormData) {
   };
 }
 
+/** Ürünün gönderim amaçlarını baştan yazar (formdaki kutucuklar). */
+async function writeOccasions(productId: string, slugs: string[]) {
+  await db.productOccasion.deleteMany({ where: { productId } });
+  if (!slugs.length) return;
+
+  const occasions = await db.occasion.findMany({
+    where: { slug: { in: slugs } },
+    select: { id: true },
+  });
+
+  await db.productOccasion.createMany({
+    data: occasions.map((occasion) => ({
+      productId,
+      occasionId: occasion.id,
+    })),
+  });
+}
+
 async function writeGallery(
   productId: string,
   mainImage: string,
@@ -569,6 +587,7 @@ export async function createProduct(
   });
 
   await writeGallery(product.id, values.imageUrl, values.galleryUrls, values.videoUrl);
+  await writeOccasions(product.id, data.getAll("occasions").map(String));
 
   await logAudit({
     actor: admin,
@@ -615,6 +634,7 @@ export async function updateProduct(
   });
 
   await writeGallery(productId, values.imageUrl, values.galleryUrls, values.videoUrl);
+  await writeOccasions(productId, data.getAll("occasions").map(String));
 
   await logAudit({
     actor: admin,

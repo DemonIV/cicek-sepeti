@@ -43,16 +43,20 @@ export default async function SellerLayout({
     );
   }
 
-  const [pendingOrders, lowStock, pendingInvoices] = await Promise.all([
-    db.order.count({
-      where: {
-        items: { some: { sellerId: seller.id } },
-        status: { in: ["ONAYLANDI", "HAZIRLANIYOR"] },
-      },
-    }),
-    db.product.count({ where: { sellerId: seller.id, stock: { lte: 5 } } }),
-    db.invoice.count({ where: { sellerId: seller.id, status: "BEKLIYOR" } }),
-  ]);
+  const [pendingOrders, lowStock, pendingInvoices, waitingReviews] =
+    await Promise.all([
+      db.order.count({
+        where: {
+          items: { some: { sellerId: seller.id } },
+          status: { in: ["ONAYLANDI", "HAZIRLANIYOR"] },
+        },
+      }),
+      db.product.count({ where: { sellerId: seller.id, stock: { lte: 5 } } }),
+      db.invoice.count({ where: { sellerId: seller.id, status: "BEKLIYOR" } }),
+      db.review.count({
+        where: { sellerId: seller.id, reply: null, isHidden: false },
+      }),
+    ]);
 
   return (
     <PanelShell
@@ -72,6 +76,12 @@ export default async function SellerLayout({
           label: "Siparişlerim",
           icon: "orders",
           count: pendingOrders,
+        },
+        {
+          href: "/satici/yorumlar",
+          label: "Yorumlarım",
+          icon: "users",
+          count: waitingReviews,
         },
         { href: "/satici/kazanc", label: "Kazançlarım", icon: "wallet" },
         {

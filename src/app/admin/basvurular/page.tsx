@@ -5,7 +5,7 @@ import { PanelHeader } from "@/components/panel/PanelShell";
 import { SellerApplicationActions } from "@/components/panel/AdminControls";
 import { SellerStatusBadge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ProductImage } from "@/components/ui/ProductImage";
+import { ImageFallback, ProductImage } from "@/components/ui/ProductImage";
 import { Icon } from "@/components/ui/Icon";
 
 export const metadata: Metadata = { title: "Satıcı başvuruları" };
@@ -44,11 +44,17 @@ export default async function ApplicationsPage() {
             <article key={seller.id} className="card overflow-hidden">
               <div className="grid gap-0 md:grid-cols-[14rem_1fr]">
                 <div className="relative aspect-[16/9] bg-plum-50 md:aspect-auto md:min-h-[11rem]">
-                  <ProductImage
-                    src={seller.coverUrl ?? ""}
-                    alt={seller.storeName}
-                    sizes="224px"
-                  />
+                  {/* Vitrinden gelen başvurunun kapak görseli olmaz;
+                      kırık kare yerine yerel çizim düşer. */}
+                  {seller.coverUrl ? (
+                    <ProductImage
+                      src={seller.coverUrl}
+                      alt={seller.storeName}
+                      sizes="224px"
+                    />
+                  ) : (
+                    <ImageFallback />
+                  )}
                 </div>
 
                 <div className="p-5">

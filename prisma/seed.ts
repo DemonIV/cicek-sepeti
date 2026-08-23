@@ -23,10 +23,15 @@ import {
   CROP_VARIANTS,
   DISCOUNTS,
   INVOICE_MONTHS,
+  LANDMARKS,
   NEIGHBORHOODS,
+  OCCASIONS,
   PACKAGING_SHOTS,
   PRODUCT_REQUESTS,
   PRODUCT_VIDEOS,
+  REVIEW_CITIES,
+  REVIEW_REPLIES,
+  REVIEW_TEXTS,
   SELLER_AREAS,
   WEEKLY_PICK_SLUG,
 } from "./seed-extra";
@@ -121,10 +126,14 @@ async function reset() {
   await db.delivery.deleteMany();
   await db.orderItem.deleteMany();
   await db.order.deleteMany();
+  await db.review.deleteMany();
+  await db.productOccasion.deleteMany();
+  await db.occasion.deleteMany();
   await db.productMedia.deleteMany();
   await db.product.deleteMany();
   await db.category.deleteMany();
   await db.sellerArea.deleteMany();
+  await db.landmark.deleteMany();
   await db.neighborhood.deleteMany();
   await db.seller.deleteMany();
   await db.address.deleteMany();
@@ -227,6 +236,33 @@ async function main() {
         }),
       );
     }
+  }
+
+  /* ---------------------- Adres noktaları ve adres bağı ------------------- */
+  /* Arama kutusu mahalle adı yerine okul/hastane/plaza ile de bulsun (23 Ağu). */
+  let landmarkCount = 0;
+  for (const neighborhood of neighborhoods) {
+    for (const [name, kind] of LANDMARKS[neighborhood.name] ?? []) {
+      await db.landmark.create({
+        data: { name, kind, neighborhoodId: neighborhood.id },
+      });
+      landmarkCount++;
+    }
+  }
+
+  /* Kayıtlı adresler mahalleye bağlanır: müşteri "Kayıtlı Adresler"den birini
+     seçince teslimat bölgesi kendiliğinden belirlensin. */
+  for (const address of await db.address.findMany()) {
+    const match = neighborhoods.filter(
+      (n) => n.city === address.city && n.district === address.district,
+    );
+    if (!match.length) continue;
+    const hit =
+      match.find((n) => address.fullAddress.startsWith(n.name)) ?? match[0];
+    await db.address.update({
+      where: { id: address.id },
+      data: { neighborhoodId: hit.id },
+    });
   }
 
   /* -------------------------------- Satıcılar ----------------------------- */
@@ -751,6 +787,116 @@ async function main() {
     }
   }
 
+  /* ---------------------------- Gönderim amacı ---------------------------- */
+  /* Kategori "ne", amaç "niçin". Müşteri çoğu zaman ikincisini arıyor. */
+  const occasions = [];
+  for (const [index, o] of OCCASIONS.entries()) {
+    occasions.push(
+      await db.occasion.create({
+        data: {
+          name: o.name,
+          slug: o.slug,
+          tagline: o.tagline,
+          imageUrl: o.image,
+          sortOrder: index,
+        },
+      }),
+    );
+  }
+
+  {
+    const catalog = await db.product.findMany({
+      where: { isAddOn: false },
+      include: { category: true },
+    });
+
+    // Ürün başına en fazla dört amaç: her buket her niyete uymaz, uydurursak
+    // filtre anlamını yitirir.
+    const perProduct = new Map<string, number>();
+    let tagCount = 0;
+    for (const [index, o] of OCCASIONS.entries()) {
+      const occasion = occasions[index];
+      const pool = catalog.filter((product) =>
+        o.categories.includes(product.category.slug),
+      );
+
+      // Ad geçen ürünler öncelikli; azsa kategori havuzundan tamamlanır ki
+      // hiçbir amaç boş sayfa açmasın.
+      const named = pool.filter((product) =>
+        (o.keywords ?? []).some((word) =>
+          product.name.toLocaleLowerCase("tr").includes(word),
+        ),
+      );
+      const rest = pool.filter((product) => !named.includes(product));
+      const chosen = [...named, ...rest].slice(0, Math.max(8, named.length));
+
+      for (const product of chosen) {
+        if ((perProduct.get(product.id) ?? 0) >= 4) continue;
+        await db.productOccasion.create({
+          data: { productId: product.id, occasionId: occasion.id },
+        });
+        perProduct.set(product.id, (perProduct.get(product.id) ?? 0) + 1);
+        tagCount++;
+      }
+    }
+    console.log(`  · ${occasions.length} gönderim amacı, ${tagCount} etiket`);
+  }
+
+  /* -------------------------------- Yorumlar ------------------------------ */
+  /* Puanı yorumlardan türet: rakam ile altındaki metinler çelişmesin. */
+  {
+    const catalog = await db.product.findMany({
+      where: { isAddOn: false },
+      select: { id: true, sellerId: true, category: { select: { slug: true } } },
+    });
+
+    let reviewCount = 0;
+    for (const product of catalog) {
+      // Ürüne uymayan metin yazılmasın: "teraryum küçük ama şirin" yorumu
+      // gül buketinin altında durursa demo inandırıcılığını kaybeder.
+      const usable = REVIEW_TEXTS.filter(
+        (row) => !row.only || row.only.includes(product.category.slug),
+      );
+
+      const count = Math.min(rint(3, 9), usable.length);
+      const picked = new Set<number>();
+      while (picked.size < count) picked.add(rint(0, usable.length - 1));
+
+      let sum = 0;
+      for (const index of picked) {
+        const row = usable[index];
+        const customer = pick(CUSTOMERS);
+        const replied = row.rating <= 3 || rnd() < 0.25;
+
+        await db.review.create({
+          data: {
+            productId: product.id,
+            sellerId: product.sellerId,
+            authorName: customer.name,
+            city: pick(REVIEW_CITIES),
+            rating: row.rating,
+            comment: row.text,
+            helpful: rint(0, 24),
+            reply: replied ? pick(REVIEW_REPLIES) : null,
+            repliedAt: replied ? daysAgo(rint(1, 40)) : null,
+            createdAt: daysAgo(rint(1, 120)),
+          },
+        });
+        sum += row.rating;
+        reviewCount++;
+      }
+
+      await db.product.update({
+        where: { id: product.id },
+        data: {
+          rating: round2(sum / picked.size),
+          reviewCount: picked.size,
+        },
+      });
+    }
+    console.log(`  · ${reviewCount} ürün yorumu`);
+  }
+
   /* ---------------------------- Ürün başvuruları -------------------------- */
   /* Bayi mağazasına ürün önerir, operasyon onaylar (23 Ağustos isteği).
      Onaylanmış başvurunun ürünü de oluşturulur ki bağ kopuk kalmasın. */
@@ -855,7 +1001,7 @@ async function main() {
 
   console.log(`✓ ${userCount} kullanıcı, ${sellers.length} mağaza, ${categories.length + 1} kategori`);
   console.log(`✓ ${productCount} ürün (${addOns.length} ek ürün), ${orderCount} sipariş`);
-  console.log(`✓ ${neighborhoodCount} mahalle, ${invoiceCount} fatura, ${auditSeed.length} denetim kaydı`);
+  console.log(`✓ ${neighborhoodCount} mahalle, ${landmarkCount} adres noktası, ${invoiceCount} fatura, ${auditSeed.length} denetim kaydı`);
   console.log(`✓ ${PRODUCT_REQUESTS.length} ürün başvurusu (bayiden operasyona)`);
   console.log("\nDemo hesapları:");
   console.log(`  Müşteri : ${CUSTOMERS[0].name} <${CUSTOMERS[0].email}>`);
