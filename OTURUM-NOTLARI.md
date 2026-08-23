@@ -171,6 +171,12 @@ admin onaylayınca oluşuyor. Yani vitrindeki içerik yine tek elden yönetiliyo
   1 onaylanmış (ürünü de oluşturulur), 1 sebebiyle reddedilmiş — üç durum da
   ekranda dolu görünsün diye.
 
+### Yayın kaydı
+
+23 Ağustos'ta `main`'e push edildi: **`a3d2880`** (18 dosya, +1.339/−29).
+Aynı push'la bir önceki oturumdan bekleyen `865dcf7` de gitti. Render
+`main`'den otomatik deploy ediyor.
+
 ### Test edildi
 
 Tarayıcıda uçtan uca: bayi "Beyaz Lale Buketi" başvurusu gönderdi → admin
