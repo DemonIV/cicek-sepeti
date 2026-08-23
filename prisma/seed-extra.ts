@@ -284,3 +284,79 @@ export const PRODUCT_VIDEOS: Record<string, string> = {
 /* ----------------------------- Fatura içeriği ----------------------------- */
 
 export const INVOICE_MONTHS = ["2026-06", "2026-07"] as const;
+
+/* ---------------------------- Ürün başvuruları ---------------------------- */
+/**
+ * 23 Ağustos 2026: bayi kendi mağazasına ürün önerebiliyor, ürün admin
+ * onayından sonra yayına çıkıyor. Demo'da üç durumun üçü de dolu olsun ki
+ * ekran boş görünmesin: biri onay bekliyor, biri onaylanmış, biri reddedilmiş.
+ *
+ * `seller` alanı SELLERS dizisindeki sırayı gösterir (0 = ilk onaylı bayi).
+ */
+export const PRODUCT_REQUESTS: {
+  seller: number;
+  category: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  image: string;
+  sellerNote?: string;
+  status: "BEKLIYOR" | "ONAYLANDI" | "REDDEDILDI";
+  reviewNote?: string;
+  daysAgo: number;
+}[] = [
+  {
+    seller: 0,
+    category: "buketler",
+    name: "Mevsim Çiçeklerinden Kır Buketi",
+    description:
+      "Halde o sabah ne varsa ondan hazırlanan, papatya ve lisianthus ağırlıklı kır buketi. Kraft kâğıt ve keten kurdele ile paketlenir.",
+    price: 890,
+    stock: 12,
+    image: u("1523693916903-027d144a2b7d"),
+    sellerNote: "Sabah gelen mevsim çiçeğiyle hazırlıyoruz, hafta içi her gün çıkabilir.",
+    status: "BEKLIYOR",
+    daysAgo: 1,
+  },
+  {
+    seller: 1,
+    category: "teraryum",
+    name: "Çift Katlı Sukulent Teraryum",
+    description:
+      "Cam fanus içinde iki katlı sukulent düzenlemesi; renkli çakıl ve volkanik taş ile. Ofis masası için dayanıklı bir hediye.",
+    price: 640,
+    stock: 8,
+    image: u("1485955900006-10f4d324d411"),
+    sellerNote: "Kendi atölyemizde hazırlıyoruz, stoğu sürekli tutabiliriz.",
+    status: "BEKLIYOR",
+    daysAgo: 3,
+  },
+  {
+    seller: 2,
+    category: "kutuda-cicek",
+    name: "Silindir Kutuda Pudra Güller",
+    description:
+      "Şapka kutusunda 25 dal pudra gül, sünger üzerine tek tek yerleştirilir. Kutu rengi krem veya antrasit seçilebilir.",
+    price: 1750,
+    stock: 6,
+    image: u("1513885535751-8b9238bd345a"),
+    status: "ONAYLANDI",
+    daysAgo: 9,
+  },
+  {
+    seller: 3,
+    category: "hediye-setleri",
+    name: "Kahve ve Çiçek Seti",
+    description:
+      "Küçük buket, filtre kahve paketi ve el yapımı kurabiye bir arada. Sabah teslimlerinde tercih ediliyor.",
+    price: 1180,
+    stock: 10,
+    image: u("1607344645866-009c320b63e0"),
+    sellerNote: "Kurabiyeyi yan sokaktaki fırından alıyoruz.",
+    status: "REDDEDILDI",
+    reviewNote:
+      "Gıda içeren setler için tedarikçi belgesi gerekiyor; belgeyi iletince tekrar açalım.",
+    daysAgo: 12,
+  },
+];

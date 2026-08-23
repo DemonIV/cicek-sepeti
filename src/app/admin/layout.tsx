@@ -21,16 +21,18 @@ export default async function AdminLayout({
     );
   }
 
-  const [applications, unassigned, pendingInvoices] = await Promise.all([
-    db.seller.count({ where: { status: "PENDING" } }),
-    db.order.count({
-      where: {
-        status: { in: ["ONAYLANDI", "HAZIRLANIYOR"] },
-        delivery: { courierId: null },
-      },
-    }),
-    db.invoice.count({ where: { status: "BEKLIYOR" } }),
-  ]);
+  const [applications, unassigned, pendingInvoices, productRequests] =
+    await Promise.all([
+      db.seller.count({ where: { status: "PENDING" } }),
+      db.order.count({
+        where: {
+          status: { in: ["ONAYLANDI", "HAZIRLANIYOR"] },
+          delivery: { courierId: null },
+        },
+      }),
+      db.invoice.count({ where: { status: "BEKLIYOR" } }),
+      db.productRequest.count({ where: { status: "BEKLIYOR" } }),
+    ]);
 
   return (
     <PanelShell
@@ -52,7 +54,12 @@ export default async function AdminLayout({
           icon: "orders",
           count: unassigned,
         },
-        { href: "/admin/urunler", label: "Ürün yönetimi", icon: "package" },
+        {
+          href: "/admin/urunler",
+          label: "Ürün yönetimi",
+          icon: "package",
+          count: productRequests,
+        },
         {
           href: "/admin/finans",
           label: "Finans ve raporlar",

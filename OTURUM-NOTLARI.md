@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 21 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 23 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -13,7 +13,8 @@ demosu. Next.js App Router + TypeScript + Tailwind + Prisma/SQLite.
 
 **21 Ağustos 2026'da müşteriden gelen 25 maddelik istek listesi uygulandı.**
 Madde madde dökümü `ISTEKLER.md`'de — yeni bir işe başlamadan önce oraya bak.
-Ayrıntılar §1a'da.
+Ayrıntılar §1a'da. **23 Ağustos'ta bir ek istek geldi** (bayiden ürün
+başvurusu); §1b.
 
 ```bash
 npm install
@@ -136,6 +137,48 @@ verildi → admin kurye atama → kurye teslim → müşteri takibinde fotoğraf
 admin panosu. Ayrıca fatura yükleme + onaylama, bölge açma/kapatma, stok
 kapatma/açma ve denetim izi tek tek denendi. `tsc --noEmit` ve `npm run build`
 temiz (37 rota).
+
+---
+
+## 1b. 23 Ağustos 2026 oturumu — bayiden ürün başvurusu
+
+Müşteri sordu: finans/fatura yapıldı mı (yapılmıştı — madde 1 ve 2, §1a) ve
+şunu istedi: *"satıcı kendi panelinde kendi mağazasına ürün ekleyebilmeli ama
+adminin onayından geçecek."*
+
+### Nasıl çözüldü — madde 4'ü bozmadan
+
+Madde 4 (bayi ürün bilgisini değiştiremez) hâlâ geçerli. Yeni ürün **doğrudan
+`Product` olarak yazılmıyor**; bayi bir **başvuru** gönderiyor, ürün ancak
+admin onaylayınca oluşuyor. Yani vitrindeki içerik yine tek elden yönetiliyor.
+
+- Yeni model **`ProductRequest`** (migration `20260823094908_urun_basvurusu`):
+  ürün alanları + `status` (BEKLIYOR | ONAYLANDI | REDDEDILDI) + `reviewNote`
+  (ret sebebi, bayi görür) + `productId` (onaylanınca oluşan ürün).
+- Bayi: `/satici/urunler/basvuru` (form) ve `/satici/urunler` altındaki
+  **"Başvurularım"** bölümü (durum + ret sebebi + bekleyeni geri çekme).
+- Admin: `/admin/urunler/basvurular` — durum sekmeleri, kart başına
+  **Onayla ve yayına al** / **Reddet (sebeple)**. Bekleyen sayısı hem yan
+  menüde hem `/admin/urunler` üstündeki uyarı bandında görünür.
+- Eylemler: `submitProductRequest` / `withdrawProductRequest`
+  (`actions/seller.ts`), `reviewProductRequest` (`actions/admin.ts`).
+  Onay, ürünü ve galerisini admin ürün akışıyla **aynı** `writeGallery`
+  yardımcısından geçirir — iki ayrı ürün oluşturma yolu yok.
+- Denetim izine yeni iki eylem: `productRequest.approve/reject`
+  (`src/lib/audit.ts` içindeki birlik tipine eklendi — yeni bir eylem
+  eklerken orayı güncellemeyi unutma, `tsc` yakalar).
+- Seed'de 4 başvuru (`PRODUCT_REQUESTS`, `seed-extra.ts`): 2 bekleyen,
+  1 onaylanmış (ürünü de oluşturulur), 1 sebebiyle reddedilmiş — üç durum da
+  ekranda dolu görünsün diye.
+
+### Test edildi
+
+Tarayıcıda uçtan uca: bayi "Beyaz Lale Buketi" başvurusu gönderdi → admin
+onayladı → ürün vitrinde (`/urun/beyaz-lale-buketi` 200) ve bayinin ürün
+listesinde "Satışta" göründü → başka bir başvuru sebeple reddedildi, sebep
+bayi panelinde çıktı → denetim izine `Nazlı Öztürk` adıyla yazıldı. Sonra
+`npm run seed` ile veri demo hâline döndürüldü. `tsc --noEmit` ve
+`npm run build` temiz (39 rota).
 
 ---
 

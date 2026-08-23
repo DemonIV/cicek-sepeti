@@ -628,3 +628,87 @@ export async function updateProduct(
   revalidatePath("/", "layout");
   redirect("/admin/urunler?guncellendi=1");
 }
+
+/* ----------------------------- Ürün başvuruları --------------------------- */
+
+/**
+ * Bayinin ürün başvurusunu inceler.
+ *
+ * Onaylanırsa başvuru gerçek bir `Product`'a dönüşür ve vitrine çıkar;
+ * reddedilirse sebep bayinin panelinde görünür. Ürün oluştuktan sonra
+ * düzenleme yetkisi yine operasyondadır (madde 4).
+ */
+export async function reviewProductRequest(
+  requestId: string,
+  status: "ONAYLANDI" | "REDDEDILDI",
+  note = "",
+) {
+  const admin = await requireAdmin();
+
+  const request = await db.productRequest.findUnique({
+    where: { id: requestId },
+    include: { seller: true },
+  });
+  if (!request) throw new Error("Başvuru bulunamadı.");
+  if (request.status !== "BEKLIYOR") {
+    throw new Error("Bu başvuru zaten sonuçlanmış.");
+  }
+
+  let productId: string | null = null;
+
+  if (status === "ONAYLANDI") {
+    let slug = slugify(request.name);
+    if (await db.product.findUnique({ where: { slug } })) {
+      slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
+    }
+
+    const product = await db.product.create({
+      data: {
+        sellerId: request.sellerId,
+        categoryId: request.categoryId,
+        name: request.name,
+        slug,
+        description: request.description,
+        price: request.price,
+        stock: request.stock,
+        imageUrl: request.imageUrl,
+        videoUrl: request.videoUrl,
+        isActive: true,
+      },
+    });
+    productId = product.id;
+
+    const galleryUrls = request.galleryUrls
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    await writeGallery(product.id, request.imageUrl, galleryUrls, request.videoUrl);
+  }
+
+  await db.productRequest.update({
+    where: { id: requestId },
+    data: {
+      status,
+      reviewNote: note.trim() || null,
+      reviewedAt: new Date(),
+      reviewedBy: admin.name,
+      productId,
+    },
+  });
+
+  await logAudit({
+    actor: admin,
+    action:
+      status === "ONAYLANDI" ? "productRequest.approve" : "productRequest.reject",
+    summary: `${request.seller.storeName} — "${request.name}" ürün başvurusu ${
+      status === "ONAYLANDI" ? "onaylandı ve yayına alındı" : "reddedildi"
+    }`,
+    entity: "ProductRequest",
+    entityId: requestId,
+  });
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/satici", "layout");
+  revalidatePath("/", "layout");
+}

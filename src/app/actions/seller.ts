@@ -13,10 +13,14 @@ import type { OrderStatus } from "@/lib/order-status";
 /**
  * Satıcı eylemleri.
  *
- * 21 Ağustos 2026'da yetki daraldı (madde 4): satıcı **ürün ekleyemez,
+ * 21 Ağustos 2026'da yetki daraldı (madde 4): satıcı **mevcut ürünü
  * düzenleyemez, silemez.** Ürün bilgisini operasyon ekibi yönetir; satıcının
- * ürün üzerindeki tek yetkisi stoğu kapatıp açmaktır. Ürün yönetimi
+ * ürün üzerindeki tek doğrudan yetkisi stoğu kapatıp açmaktır. Ürün yönetimi
  * `actions/admin.ts` içine taşındı.
+ *
+ * 23 Ağustos 2026'da bir kapı açıldı: satıcı mağazasına **yeni ürün
+ * başvurusu** yapabilir (`submitProductRequest`). Başvuru vitrine çıkmaz;
+ * ürün ancak admin onayında oluşur (`reviewProductRequest`, actions/admin.ts).
  */
 
 async function requireSeller() {
@@ -192,4 +196,105 @@ export async function uploadInvoice(formData: FormData) {
   revalidatePath("/admin/finans");
 
   return { ok: true as const, message: "Fatura yüklendi, finans incelemesine düştü." };
+}
+
+/* ----------------------------- Ürün başvurusu ----------------------------- */
+
+export type ProductRequestFormState = {
+  errors?: Record<string, string>;
+  message?: string;
+  ok?: boolean;
+};
+
+/**
+ * Bayi kendi mağazasına yeni ürün önerir; ürün ancak operasyon onayından sonra
+ * yayına çıkar.
+ *
+ * Madde 4'le çelişmez: bayi mevcut bir ürünün bilgisini hâlâ değiştiremez.
+ * Buradan gelen kayıt bir **başvurudur**; onaylanana kadar vitrinde görünmez,
+ * onaylandıktan sonra da düzenleme yetkisi operasyondadır.
+ */
+export async function submitProductRequest(
+  _prev: ProductRequestFormState,
+  data: FormData,
+): Promise<ProductRequestFormState> {
+  const seller = await requireSeller();
+
+  const str = (key: string) => String(data.get(key) ?? "").trim();
+
+  const name = str("name");
+  const categoryId = str("categoryId");
+  const description = str("description");
+  const price = Number(data.get("price") ?? 0);
+  const stock = Number(data.get("stock") ?? 0);
+  const imageUrl = str("imageUrl");
+  const videoUrl = str("videoUrl");
+  const sellerNote = str("sellerNote");
+  const galleryUrls = str("gallery")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const errors: Record<string, string> = {};
+  if (name.length < 3) errors.name = "Ürün adı en az 3 karakter olmalı.";
+  if (!categoryId) errors.categoryId = "Kategori seç.";
+  if (!(price > 0)) errors.price = "Fiyat sıfırdan büyük olmalı.";
+  if (!Number.isInteger(stock) || stock < 0)
+    errors.stock = "Stok 0 veya daha büyük bir tam sayı olmalı.";
+  if (description.length < 10)
+    errors.description = "Kısa bir açıklama yaz (en az 10 karakter).";
+  if (!/^https?:\/\//.test(imageUrl))
+    errors.imageUrl = "Görsel için http(s) ile başlayan bir adres gir.";
+  if (videoUrl && !/^(https?:\/\/|\/)/.test(videoUrl))
+    errors.videoUrl = "Video adresi http(s) ile başlamalı.";
+  if (galleryUrls.some((url) => !/^https?:\/\//.test(url)))
+    errors.gallery = "Her satırda http(s) ile başlayan bir adres olmalı.";
+
+  if (Object.keys(errors).length) {
+    return { errors, message: "Eksik alanlar var." };
+  }
+
+  await db.productRequest.create({
+    data: {
+      sellerId: seller.id,
+      categoryId,
+      name,
+      description,
+      price,
+      stock,
+      imageUrl,
+      galleryUrls: galleryUrls.join("\n"),
+      videoUrl: videoUrl || null,
+      sellerNote: sellerNote || null,
+      status: "BEKLIYOR",
+    },
+  });
+
+  revalidatePath("/satici/urunler");
+  revalidatePath("/admin/urunler", "layout");
+
+  return {
+    ok: true,
+    message: "Başvurun operasyon ekibine iletildi. Onaylanınca ürün vitrine çıkar.",
+  };
+}
+
+/** Bayi kendi bekleyen başvurusunu geri çeker. */
+export async function withdrawProductRequest(requestId: string) {
+  const seller = await requireSeller();
+
+  const request = await db.productRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request || request.sellerId !== seller.id) {
+    throw new Error("Bu başvuru üzerinde yetkin yok.");
+  }
+  if (request.status !== "BEKLIYOR") {
+    throw new Error("Yalnızca inceleme bekleyen başvuru geri çekilebilir.");
+  }
+
+  await db.productRequest.delete({ where: { id: requestId } });
+
+  revalidatePath("/satici/urunler");
+  revalidatePath("/admin/urunler", "layout");
 }

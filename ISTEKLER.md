@@ -7,6 +7,9 @@
 **Durum: 24 / 24 tamamlandı** (11. madde müşteri isteğiyle iptal edildi, 10. madde
 süreç notu — kod işi değil).
 
+> **Ek istek — 23 Ağustos 2026:** bayi kendi panelinden mağazasına ürün
+> ekleyebilsin, ürün admin onayından geçsin. Uygulandı; §G'ye bakın.
+
 ---
 
 ## A. Finans ve fatura
@@ -58,6 +61,19 @@ süreç notu — kod işi değil).
 | 19 | Bayilere **gün bazlı ve sipariş bazlı kota** | [x] | `Seller.dailyQuota` (bir günde en fazla teslimat) ve `activeQuota` (aynı anda açık sipariş). Admin künyeden ayarlar; bayi panosunda kullanım çubuklarıyla görünür. |
 | 20 | **3 admin kendi ismiyle girsin**, kim neyi değiştirmiş görünsün | [x] | Üç admin hesabı (Nazlı Öztürk · Operasyon, Kerem Balcı · Bayi İlişkileri, Sibel Aksu · Finans) rol değiştiricide. Yetki değiştiren her admin eylemi `AuditLog`'a yazılır; `/admin/kayitlar` ekranında kişiye göre filtrelenir. |
 
+## G. Bayiden ürün başvurusu (23 Ağustos 2026)
+
+| # | İstek | Durum | Nasıl uygulandı |
+| --- | --- | --- | --- |
+| 26 | Satıcı kendi panelinden mağazasına **ürün ekleyebilsin**, ürün **admin onayından geçsin** | [x] | Yeni `ProductRequest` modeli. Bayi `/satici/urunler/basvuru` ekranından ürünü tanımlar (ad, kategori, fiyat, stok, açıklama, ana görsel + ek görseller, video, operasyona not) ve **Onaya gönder** der; kayıt vitrinde görünmez. Operasyon `/admin/urunler/basvurular` ekranında **Onayla ve yayına al** (ürün galerisiyle oluşur, vitrine çıkar) veya **Reddet** (sebep zorunlu alan olarak istenir, bayi görür) der. Bayi bekleyen başvurusunu geri çekebilir; ürün listesinin altındaki "Başvurularım" bölümünde durumu takip eder. Her karar denetim izine yazılır. |
+
+**4. madde ile ilişkisi:** madde 4 korundu — bayi **mevcut** ürünün bilgisini
+hâlâ değiştiremez, silemez; tek doğrudan yetkisi stok kapatma. Yeni ürün ise
+bayiden gelebiliyor ama yayına çıkma kararı operasyonda. Onaydan sonraki her
+düzenleme yine `/admin/urunler/[id]` üzerinden yapılır.
+
+---
+
 ## F. Süreç notu
 
 | # | Not |
@@ -80,6 +96,10 @@ süreç notu — kod işi değil).
   siparişin durumunu geciktirmez, çiçekle aynı pakette ilerler.
 - **12** — bölge seçimi **zorunlu değil**: seçilmezse katalog daralmaz, sunumu
   açan kişi boş ekranla karşılaşmaz. Seçilince katalog ve ödeme adımı daralır.
+- **26** — başvuru onaylanınca ürün **doğrudan yayına** alınır (`isActive`),
+  ayrıca "önce taslak" adımı konmadı: sunumda tek tıkla vitrinde görünmesi
+  akışı anlaşılır kılıyor. Fiyat/indirim gibi vitrin kararları başvuru formunda
+  yok — onlar operasyonun işi, ürün formunda kalıyor.
 - **22 / 1 / 2** — dosya yükleme demo için tarayıcıda küçültülüp veritabanında
   saklanıyor; gerçek sistemde nesne deposu (S3/Blob) gerekir. Faturada PDF için
   yalnızca dosya bilgisi tutulur.

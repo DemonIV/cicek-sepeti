@@ -137,8 +137,11 @@ hata, boş ekran veya kırık link yoktur.
 - **İşlem kayıtları** (`/admin/kayitlar`): hangi admin neyi değiştirmiş.
 - **Satıcı faturaları** (`/satici/faturalar`): bayi kendi komisyon faturasını
   yükler, finans ekranında karşılığı anında görünür.
-- **Satıcı ürünleri** (`/satici/urunler`): bayi ürüne dokunamaz, yalnızca
+- **Satıcı ürünleri** (`/satici/urunler`): bayi mevcut ürüne dokunamaz, yalnızca
   **stoğu kapatır**; kapattığı ürün vitrinde "satışa kapalı" olur.
+- **Ürün başvurusu** (`/satici/urunler/basvuru` → `/admin/urunler/basvurular`):
+  bayi mağazasına **yeni ürün önerir**, operasyon onaylayınca ürün vitrine
+  çıkar; reddedilirse sebep bayinin panelinde görünür.
 
 ---
 
@@ -160,6 +163,25 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 | **Arabaya verildi** | Sipariş araca verilene kadar kuryenin "işlem gören" listesine düşmez. |
 | **Üç admin + denetim izi** | Üç kişi kendi ismiyle girer; her yetki değişikliği kim yaptıysa onun adıyla kaydedilir. |
 | **Görünüm** | Outfit başlık yüzü, yuvarlak ana sayfa afişleri, logo sol / arama orta / sepet sağ, üstte koleksiyon şeridi, tanıdık e-ticaret ürün kartı. |
+
+---
+
+## 23 Ağustos 2026 eklentisi — bayiden ürün başvurusu
+
+Müşteri isteği: *"satıcı kendi panelinde kendi mağazasına ürün ekleyebilmeli
+ama adminin onayından geçecek."* 21 Ağustos'taki 4. madde (bayi ürün bilgisini
+değiştiremez) korunarak eklendi:
+
+- Bayi `/satici/urunler` → **Yeni ürün başvurusu** ile ürünü tanımlar (ad,
+  kategori, fiyat, stok, açıklama, ana görsel + ek görseller, video, not).
+  Gönderilen kayıt bir **başvurudur** — vitrinde görünmez, sepete girmez.
+- Operasyon `/admin/urunler/basvurular` ekranında görür. **Onayla ve yayına
+  al** ürünü (galerisiyle birlikte) oluşturup vitrine çıkarır; **Reddet**
+  sebep ister ve sebep bayinin "Başvurularım" listesinde görünür.
+- Bayi bekleyen başvurusunu **geri çekebilir**; sonuçlanmış başvuruya dokunamaz.
+- Onaydan sonra ürünün fiyatı ve içeriği yine yalnızca operasyondan değişir;
+  bayinin yetkisi stoğu kapatıp açmakla sınırlı kalır.
+- Her onay/ret **denetim izine** kimin yaptığıyla birlikte yazılır.
 
 ---
 
@@ -186,7 +208,8 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 | Yol | Ekran |
 | --- | --- |
 | `/satici` | Genel bakış: sipariş, kazanç, **sorumlu kişi**, **kota**, **hizmet puanı** |
-| `/satici/urunler` | Ürünlerim — okunur; tek yetki **stoğu kapat/aç** |
+| `/satici/urunler` | Ürünlerim — okunur; **stoğu kapat/aç** + kendi **ürün başvuruları** |
+| `/satici/urunler/basvuru` | Yeni ürün başvurusu (onaya gider) |
 | `/satici/siparisler` | Kendi kalemleri; **teslimat tarihine göre**, bugünle açılır |
 | `/satici/kazanc` | Komisyon düşülmüş kazanç dökümü |
 | `/satici/faturalar` | Fatura yükleme ve inceleme durumu |
@@ -199,6 +222,7 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 | `/admin/saticilar/[id]` | Bayi künyesi: **hizmet bölgeleri**, sipariş alımı, kota, puan, sorumlu |
 | `/admin/siparisler` | Tüm siparişler, filtre, kurye atama |
 | `/admin/urunler` | Tüm ürünler; **ürün ekleme/düzenleme burada** (galeri, indirim) |
+| `/admin/urunler/basvurular` | Bayilerin ürün başvuruları: onayla ve yayına al / reddet |
 | `/admin/finans` | Finans ve raporlar: hakedişler, faturalar, yarım kalan ödemeler |
 | `/admin/kayitlar` | İşlem kayıtları (denetim izi) |
 | `/mobil-onizleme` | Müşteri arayüzü telefon çerçevesi içinde |
@@ -214,8 +238,9 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 - **7 mağaza:** İstanbul, Ankara, İzmir, Kayseri'de 4 çiçekçi + ek ürünleri
   gönderen **Hediye Deposu** onaylı; Antalya ve Bursa'dan 2 mağaza **onay
   bekliyor** (admin başvuru ekranı dolu görünsün, Bursa mahalleleri kapalı kalsın)
-- **11 kategori** (biri gizli: *Hediye Ekleri*), **70 ürün** — 61 çiçek +
-  **9 ek ürün**; birkaç ürün bilinçli olarak stokta az
+- **11 kategori** (biri gizli: *Hediye Ekleri*), **71 ürün** — 61 çiçek +
+  **9 ek ürün** + onaylanmış bir bayi başvurusu; birkaç ürün bilinçli olarak
+  stokta az
 - **55 mahalle** ve bayi ↔ mahalle eşleşmeleri; her bayi kendi şehrinin bir
   bölümüne hizmet verir, Hediye Deposu her yere kargolar
 - **8 zamanlı indirim** (biri gelecek tarihli, yani "planlandı") ve bir
@@ -225,6 +250,8 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 - **38 sipariş**, son 30 güne yayılmış, tüm durumlara dağılmış; büyük bölümü
   **çok satıcılı** (çiçek + hediye eki)
 - **10 fatura**, **7 denetim kaydı**, bayi puan hareketleri
+- **4 ürün başvurusu:** ikisi onay bekliyor, biri onaylanıp yayına alınmış,
+  biri sebebiyle reddedilmiş — üç durum da ekranda görünsün diye
 
 ---
 

@@ -35,7 +35,7 @@ export default async function AdminProductsPage({
     ...(q ? { name: { contains: q } } : {}),
   };
 
-  const [products, sellers] = await Promise.all([
+  const [products, sellers, waitingRequests] = await Promise.all([
     db.product.findMany({
       where,
       include: {
@@ -47,6 +47,7 @@ export default async function AdminProductsPage({
       take: 120,
     }),
     db.seller.findMany({ orderBy: { storeName: "asc" } }),
+    db.productRequest.count({ where: { status: "BEKLIYOR" } }),
   ]);
 
   const buildHref = (patch: Record<string, string | null>) => {
@@ -81,6 +82,17 @@ export default async function AdminProductsPage({
                 className="field py-1.5 pl-8 text-[13px] sm:w-56"
               />
             </form>
+            <Link
+              href="/admin/urunler/basvurular"
+              className="btn btn-outline btn-sm"
+            >
+              Bayi başvuruları
+              {waitingRequests > 0 && (
+                <span className="tabular ml-1 rounded-full bg-plum-900 px-1.5 py-px text-[11px] font-semibold text-white">
+                  {waitingRequests}
+                </span>
+              )}
+            </Link>
             <Link href="/admin/urunler/yeni" className="btn btn-primary btn-sm">
               <Icon name="plus" size={15} />
               Ürün ekle
@@ -88,6 +100,20 @@ export default async function AdminProductsPage({
           </>
         }
       />
+
+      {waitingRequests > 0 && (
+        <p className="mb-5 flex flex-wrap items-center gap-2 rounded-md border border-gold-300 bg-gold-100 px-4 py-3 text-[13px] text-plum-900">
+          <Icon name="alert" size={16} className="text-gold-700" />
+          <strong className="font-semibold">{waitingRequests} ürün başvurusu</strong>{" "}
+          bayilerden geldi ve onay bekliyor.
+          <Link
+            href="/admin/urunler/basvurular"
+            className="font-semibold text-plum-800 underline underline-offset-2"
+          >
+            İncele
+          </Link>
+        </p>
+      )}
 
       {(eklendi || guncellendi) && (
         <p className="mb-5 rounded-md border border-plum-200 bg-plum-50 px-4 py-3 text-[13px] font-medium text-plum-800">

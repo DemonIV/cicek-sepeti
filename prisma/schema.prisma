@@ -87,6 +87,7 @@ model Seller {
   scoreEvents    SellerScoreEvent[]
   invoices       Invoice[]
   prepPhotos     PreparationPhoto[]
+  productRequests ProductRequest[]
 
   @@index([status])
   @@index([accountManagerId])
@@ -147,7 +148,8 @@ model Category {
   /// Gezinmede ve ana sayfada listelenmez (ek ürünlerin kategorisi gibi).
   isHidden  Boolean @default(false)
 
-  products Product[]
+  products        Product[]
+  productRequests ProductRequest[]
 }
 
 model Product {
@@ -194,6 +196,42 @@ model Product {
   @@index([categoryId])
   @@index([isActive])
   @@index([isAddOn])
+}
+
+/// Bayinin kendi mağazasına ürün ekleme başvurusu.
+///
+/// Satıcı ürün bilgisini doğrudan değiştiremez (madde 4); yeni ürünü buradan
+/// önerir, operasyon ekibi onaylayınca `Product` olarak yayına çıkar.
+model ProductRequest {
+  id          String @id @default(cuid())
+  sellerId    String
+  categoryId  String
+  name        String
+  description String
+  price       Float
+  stock       Int    @default(0)
+  imageUrl    String
+  /// Ek görseller — satır satır adres (galeri, madde 23).
+  galleryUrls String @default("")
+  videoUrl    String?
+  /// Bayinin başvuruya eklediği açıklama.
+  sellerNote  String?
+
+  status     String    @default("BEKLIYOR") // BEKLIYOR | ONAYLANDI | REDDEDILDI
+  /// Operasyonun notu — reddedildiyse sebep bayiye burada görünür.
+  reviewNote String?
+  reviewedAt DateTime?
+  reviewedBy String?
+  /// Onaylandıysa oluşan ürün.
+  productId  String?
+
+  createdAt DateTime @default(now())
+
+  seller   Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([sellerId])
+  @@index([status])
 }
 
 /// Ürün galerisi — en az 3 fotoğraf, isteğe bağlı video.

@@ -145,3 +145,22 @@ export const INVOICE_STATUS_META: Record<
   ONAYLANDI: { label: "Onaylandı", tone: "leaf" },
   REDDEDILDI: { label: "Reddedildi", tone: "danger" },
 };
+
+/* --------------------------- Ürün başvurusu ------------------------------- */
+/* Bayi yeni ürününü önerir, operasyon onaylar. */
+
+export const PRODUCT_REQUEST_STATUSES = [
+  "BEKLIYOR",
+  "ONAYLANDI",
+  "REDDEDILDI",
+] as const;
+export type ProductRequestStatus = (typeof PRODUCT_REQUEST_STATUSES)[number];
+
+export const PRODUCT_REQUEST_STATUS_META: Record<
+  ProductRequestStatus,
+  { label: string; tone: Tone }
+> = {
+  BEKLIYOR: { label: "Onay bekliyor", tone: "amber" },
+  ONAYLANDI: { label: "Onaylandı · yayında", tone: "leaf" },
+  REDDEDILDI: { label: "Reddedildi", tone: "danger" },
+};

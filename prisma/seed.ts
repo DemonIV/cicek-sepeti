@@ -25,6 +25,7 @@ import {
   INVOICE_MONTHS,
   NEIGHBORHOODS,
   PACKAGING_SHOTS,
+  PRODUCT_REQUESTS,
   PRODUCT_VIDEOS,
   SELLER_AREAS,
   WEEKLY_PICK_SLUG,
@@ -112,6 +113,7 @@ const EVENT_LABEL: Record<string, string> = {
 
 async function reset() {
   await db.auditLog.deleteMany();
+  await db.productRequest.deleteMany();
   await db.invoice.deleteMany();
   await db.preparationPhoto.deleteMany();
   await db.sellerScoreEvent.deleteMany();
@@ -749,6 +751,71 @@ async function main() {
     }
   }
 
+  /* ---------------------------- Ürün başvuruları -------------------------- */
+  /* Bayi mağazasına ürün önerir, operasyon onaylar (23 Ağustos isteği).
+     Onaylanmış başvurunun ürünü de oluşturulur ki bağ kopuk kalmasın. */
+  const approvedByOps = admins[1] ?? admins[0];
+
+  for (const request of PRODUCT_REQUESTS) {
+    const seller = sellers.filter((s) => s.status === "APPROVED")[request.seller];
+    const category = categories.find((c) => c.slug === request.category);
+    if (!seller || !category) continue;
+
+    let productId: string | null = null;
+
+    if (request.status === "ONAYLANDI") {
+      const product = await db.product.create({
+        data: {
+          sellerId: seller.id,
+          categoryId: category.id,
+          name: request.name,
+          slug: slugify(request.name),
+          description: request.description,
+          price: request.price,
+          stock: request.stock,
+          imageUrl: request.image,
+          isActive: true,
+          createdAt: daysAgo(request.daysAgo - 1),
+        },
+      });
+      productId = product.id;
+
+      await db.productMedia.createMany({
+        data: [
+          { productId: product.id, url: request.image, kind: "IMAGE", sortOrder: 0 },
+          ...CROP_VARIANTS.map((variant, index) => ({
+            productId: product.id,
+            url: `${request.image}?${variant}`,
+            kind: "IMAGE",
+            sortOrder: index + 1,
+          })),
+        ],
+      });
+    }
+
+    const reviewed = request.status !== "BEKLIYOR";
+
+    await db.productRequest.create({
+      data: {
+        sellerId: seller.id,
+        categoryId: category.id,
+        name: request.name,
+        description: request.description,
+        price: request.price,
+        stock: request.stock,
+        imageUrl: request.image,
+        galleryUrls: CROP_VARIANTS.map((v) => `${request.image}?${v}`).join("\n"),
+        sellerNote: request.sellerNote ?? null,
+        status: request.status,
+        reviewNote: request.reviewNote ?? null,
+        reviewedAt: reviewed ? daysAgo(request.daysAgo - 1) : null,
+        reviewedBy: reviewed ? approvedByOps.name : null,
+        productId,
+        createdAt: daysAgo(request.daysAgo),
+      },
+    });
+  }
+
   /* ------------------------------- Denetim izi ---------------------------- */
   /* Üç admin de kendi ismiyle çalışıyor; kim neyi değiştirmiş görünür (madde 20). */
   const auditSeed: { actor: (typeof admins)[number]; action: string; summary: string; entity: string; daysAgo: number }[] = [
@@ -789,6 +856,7 @@ async function main() {
   console.log(`✓ ${userCount} kullanıcı, ${sellers.length} mağaza, ${categories.length + 1} kategori`);
   console.log(`✓ ${productCount} ürün (${addOns.length} ek ürün), ${orderCount} sipariş`);
   console.log(`✓ ${neighborhoodCount} mahalle, ${invoiceCount} fatura, ${auditSeed.length} denetim kaydı`);
+  console.log(`✓ ${PRODUCT_REQUESTS.length} ürün başvurusu (bayiden operasyona)`);
   console.log("\nDemo hesapları:");
   console.log(`  Müşteri : ${CUSTOMERS[0].name} <${CUSTOMERS[0].email}>`);
   console.log(`  Satıcı  : ${SELLERS[0].owner} <${SELLERS[0].email}>`);
