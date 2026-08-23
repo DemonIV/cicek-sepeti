@@ -11,10 +11,11 @@
 Dört rollü (Müşteri · Satıcı · Kurye · Admin) çok satıcılı çiçek pazaryeri
 demosu. Next.js App Router + TypeScript + Tailwind + Prisma/SQLite.
 
-**21 Ağustos 2026'da müşteriden gelen 25 maddelik istek listesi uygulandı.**
-Madde madde dökümü `ISTEKLER.md`'de — yeni bir işe başlamadan önce oraya bak.
-Ayrıntılar §1a'da. **23 Ağustos'ta bir ek istek geldi** (bayiden ürün
-başvurusu); §1b.
+**Müşteri istekleri `ISTEKLER.md`'de takip ediliyor — yeni bir işe başlamadan
+önce oraya bak.** 21 Ağustos'ta 25 maddelik ilk liste uygulandı (§1a);
+23 Ağustos'ta yedi madde daha geldi: bayiden ürün başvurusu (§1b), girişte
+adres seçimi (§1c), Çiçek Sepeti incelemesinden dört ekleme + iki düzeltme
+(§1d). Toplam **33 madde**, hepsi kapalı.
 
 ```bash
 npm install
@@ -41,7 +42,24 @@ geçti** (ayrıntı §1a → "Test edildi"). Bölge seçimi → ürün/galeri/vi
 kurye atama → kurye teslim → müşteri takibi → admin panosu döngüsünde kırık
 ekran veya hata yok.
 
-`tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor.
+`tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor (43 rota).
+
+### Sıradaki oturum için
+
+**Kod tarafında bekleyen iş yok**; her şey `main`'de ve yayında (son commit
+`0de166e`). Müşteriye sunulmuş ama henüz istenmemiş öneriler `ISTEKLER.md`
+§I sonundaki "sırada bekleyen öneriler" listesinde duruyor: favoriler ve
+"X kişinin favorisi", özel gün hatırlatıcı, kupon/kampanya kodu, kişiye özel
+(isim yazdırma, kart tasarımı), benzer ürün şeridi, teslimat ücreti kuralları,
+kurumsal (B2B) toplu gönderim. Müşteri hangisini isterse oradan devam edilir.
+
+**Çalışma ortamı tuzağı — okumadan iş yapma:** `next dev` ile `next build`
+aynı `.next` klasörünü kullanıyor. Dev sunucusu açıkken build alırsan dev
+tarafı `ENOENT: ... .next\serverpp\(shop)\page.js` ya da "Jest worker
+encountered child process exceptions" verip çöker. Çözüm: node süreçlerini
+kapat → `.next` klasörünü sil → `npm run dev`. Aynı şekilde `prisma generate`
+dev açıkken EPERM (DLL kilidi) veriyor; önce dev'i durdur. Bu oturumda iki kez
+buna takıldı.
 
 ---
 
