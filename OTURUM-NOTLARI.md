@@ -277,6 +277,11 @@ sayfasında teslimat günü/saati seçici ve yorum bölümü.
   kullanılıyor. `input type="date"` görünmez şekilde düğmenin üstünde duruyor,
   `showPicker()` ile açılıyor.
 
+### Yayın kaydı
+
+23 Ağustos'ta `main`'e push edildi: **`fcb261c`** (47 dosya, +3.511/−66) —
+27–33. maddelerin tamamı. Render `main`'den otomatik deploy ediyor.
+
 ### Test edildi
 
 Tarayıcıda: amaç şeridi → katalog filtresi; ürün sayfasında yorumlar ve satıcı
