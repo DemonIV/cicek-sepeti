@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 25 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 26 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -44,12 +44,13 @@ geçti** (ayrıntı §1a → "Test edildi"). Bölge seçimi → ürün/galeri/vi
 kurye atama → kurye teslim → müşteri takibi → admin panosu döngüsünde kırık
 ekran veya hata yok.
 
-`tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor (43 rota).
+`tsc --noEmit` temiz, `npm run build` tüm rotaları hatasız derliyor (41 rota).
 
 ### Sıradaki oturum için
 
-**Kod tarafında bekleyen iş yok.** 25 Ağustos'taki inceleme turu (§1e) henüz
-**push edilmedi** — çalışma ağacında duruyor. Müşteriye sunulmuş ama henüz
+**Kod tarafında bekleyen iş yok.** 25 Ağustos'un iki turu (§1e inceleme +
+navbar/vitrin) 26 Ağustos'ta push edildi — bkz. dosya sonundaki yayın kaydı.
+Çalışma ağacı temiz. Müşteriye sunulmuş ama henüz
 istenmemiş öneriler `ISTEKLER.md` §I sonundaki "sırada bekleyen öneriler"
 listesinde: favoriler ve "X kişinin favorisi", özel gün hatırlatıcı,
 kupon/kampanya kodu, kişiye özel (isim yazdırma, kart tasarımı), bölge/tarih
@@ -772,3 +773,11 @@ tik). Pencere kapalıyken ilerleme çubuğu **hiç çizilmiyor**: dolu bir çubu
 
 İki durum da tarayıcıda görüldü: 18:00 öncesi "Bugün teslim için son 47 dakika"
 + altın çubuk, sonrası "Aynı gün penceresi kapandı" + "yarın sabah tezgâhta".
+
+### Yayın kaydı
+
+26 Ağustos'ta `main`'e push edildi: **`640ebb1`** (31 dosya, +4.407/−188) —
+25 Ağustos'un iki turu (§1e inceleme bulguları 34-38 ve navbar/vitrin/teslimat
+bandı) tek commit'te gitti. Push öncesi `tsc --noEmit` ve `npm run build`
+koşuldu: temiz, **41 rota** (`/vitrin/[slug]` altı yolla SSG). Render `main`'den
+otomatik deploy ediyor.
