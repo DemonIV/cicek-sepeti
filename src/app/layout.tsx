@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Manrope, Outfit, JetBrains_Mono } from "next/font/google";
+import { Bodoni_Moda, Poppins, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { DemoBar } from "@/components/site/DemoBar";
 import { SetupNotice } from "@/components/site/SetupNotice";
@@ -29,11 +29,17 @@ const note = Bodoni_Moda({
   style: ["italic"],
 });
 
-/** Gövde yüzü: geometrik ama yuvarlak omuzlu — didonenin sertliğini dengeler. */
-const sans = Manrope({
+/**
+ * Gövde yüzü: Poppins — geometrik, dairesel omuzlu, başlıklardaki Outfit ile
+ * aynı ailedenmiş gibi duran ama gövdede daha yumuşak bir sans (müşteri isteği,
+ * 25 Ağustos 2026). Poppins değişken eksen taşımadığı için ağırlıklar tek tek
+ * yükleniyor.
+ */
+const sans = Poppins({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-manrope",
+  variable: "--font-poppins",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const mono = JetBrains_Mono({

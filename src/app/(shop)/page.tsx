@@ -155,6 +155,26 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* --------------------------- Kategori şeridi ----------------------------- */}
+      {/* Başlıktan buraya indi: navbar artık metin + açılır menü, fotoğraflı
+          kısayol şeridi gövdenin ilk elemanı. Dar ekranda kaydırılır, geniş
+          ekranda ortalanır. */}
+      <section className="border-b border-line bg-plum-50/50">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
+          <nav aria-label="Kategori kısayolları" className="scroll-row py-4 lg:justify-center">
+            <CategoryTile href="/urunler" label="Tümü" />
+            {categories.map((category) => (
+              <CategoryTile
+                key={category.id}
+                href={`/kategori/${category.slug}`}
+                label={category.name}
+                imageUrl={category.imageUrl}
+              />
+            ))}
+          </nav>
+        </div>
+      </section>
+
       {/* ------------------------- Hero — telefon (afiş) -------------------------- */}
       {/* Telefonda ilk ekran ürünü göstermeli: uzun başlık yerine tek kampanya
           afişi, hemen altında kategoriler ve ürün ızgarası gelir. */}
@@ -620,6 +640,42 @@ function ArchFrame({
       />
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-plum-950/85 to-transparent px-4 pb-4 pt-12 text-center text-[12.5px] font-semibold text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
         {product.name}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Sayfanın en üstündeki kategori kısayolu — eskiden başlıktaydı.
+ * "Buket" kelimesini okumak yerine buketi görüp tıklarsın.
+ */
+function CategoryTile({
+  href,
+  label,
+  imageUrl,
+}: {
+  href: string;
+  label: string;
+  imageUrl?: string | null;
+}) {
+  return (
+    <Link href={href} className="group w-[4.5rem] text-center sm:w-[5rem]">
+      <div className="arch-sm relative mx-auto h-[3.75rem] w-[3.25rem] border border-line bg-plum-100 transition-[border-color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-bloom-400">
+        {imageUrl ? (
+          <ProductImage
+            src={imageUrl}
+            alt=""
+            sizes="52px"
+            className="transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center font-display text-[1.15rem] text-plum-500">
+            ✽
+          </span>
+        )}
+      </div>
+      <span className="mt-1.5 block truncate text-[11.5px] font-semibold text-plum-800 transition-colors group-hover:text-bloom-700">
+        {label}
       </span>
     </Link>
   );

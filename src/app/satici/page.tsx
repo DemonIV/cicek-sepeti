@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { formatDateShort, formatPercent, formatPrice } from "@/lib/format";
 import { summarizeEarnings } from "@/lib/pricing";
 import { scoreBand } from "@/lib/seller-score";
+import { sellerQuotaUsage } from "@/lib/seller-quota";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { StatCard } from "@/components/panel/StatCard";
 import { Badge, OrderStatusBadge } from "@/components/ui/Badge";
@@ -29,8 +30,7 @@ export default async function SellerDashboard() {
     manager,
     scoreEvents,
     areaCount,
-    activeOrders,
-    todayDeliveries,
+    quota,
   ] = await Promise.all([
       db.order.count({
         where: {
@@ -75,31 +75,18 @@ export default async function SellerDashboard() {
       }),
       // Hizmet verilen mahalle sayısı (madde 15)
       db.sellerArea.count({ where: { sellerId: seller.id } }),
-      // Kota kullanımı (madde 19)
-      db.order.count({
-        where: {
-          items: { some: { sellerId: seller.id } },
-          status: { in: ["ONAYLANDI", "HAZIRLANIYOR", "YOLDA"] },
-        },
-      }),
-      db.order.count({
-        where: {
-          items: { some: { sellerId: seller.id } },
-          deliveryDate: {
-            gte: startOfToday,
-            lte: new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000 - 1),
-          },
-        },
-      }),
+      // Kota kullanımı (madde 19) — sayımın tanımı `lib/seller-quota.ts`'te;
+      // ödeme adımındaki engel de aynı fonksiyondan geçer.
+      sellerQuotaUsage(seller, startOfToday),
     ]);
 
   const earnings = summarizeEarnings(paidItems);
   const band = scoreBand(seller.score);
-  const dailyUsed = seller.dailyQuota
-    ? Math.min(100, Math.round((todayDeliveries / seller.dailyQuota) * 100))
+  const dailyUsed = quota.daily.limit
+    ? Math.min(100, Math.round((quota.daily.used / quota.daily.limit) * 100))
     : 0;
-  const activeUsed = seller.activeQuota
-    ? Math.min(100, Math.round((activeOrders / seller.activeQuota) * 100))
+  const activeUsed = quota.active.limit
+    ? Math.min(100, Math.round((quota.active.used / quota.active.limit) * 100))
     : 0;
 
   return (
@@ -215,21 +202,30 @@ export default async function SellerDashboard() {
           <div className="mt-3 space-y-4">
             <QuotaBar
               label="Bugünkü teslimat"
-              used={todayDeliveries}
+              used={quota.daily.used}
               quota={seller.dailyQuota}
               percent={dailyUsed}
             />
             <QuotaBar
               label="Açık sipariş"
-              used={activeOrders}
+              used={quota.active.used}
               quota={seller.activeQuota}
               percent={activeUsed}
             />
           </div>
 
-          <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-            Kota dolduğunda operasyon ekibi yeni sipariş akışını durdurabilir.
-          </p>
+          {quota.daily.full || quota.active.full ? (
+            <p className="mt-3 rounded-md border border-[#f2c6c2] bg-[#fbe0dd] px-3 py-2 text-[11.5px] font-semibold leading-relaxed text-[#9c2f2a]">
+              {quota.daily.full
+                ? "Bugünün teslimat kotası doldu — bu güne yeni sipariş alınmıyor."
+                : "Açık sipariş kotan doldu — teslimatlar tamamlanana kadar yeni sipariş alınmıyor."}
+            </p>
+          ) : (
+            <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
+              Kota dolduğunda o güne yeni sipariş alınmaz; müşteri ödeme adımında
+              başka bir teslimat gününe yönlendirilir.
+            </p>
+          )}
         </section>
 
         {/* Puan hareketleri (madde 17) */}

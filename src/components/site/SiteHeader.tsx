@@ -1,30 +1,25 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { getCartCount } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
 import { getSelectedArea, areaLabel } from "@/lib/delivery-area";
 import { COLLECTIONS } from "@/lib/collections";
 import { AreaTrigger } from "@/components/site/AreaTrigger";
+import { MainNav } from "@/components/site/MainNav";
 import { Icon } from "@/components/ui/Icon";
-import { ProductImage } from "@/components/ui/ProductImage";
 
 /**
  * Vitrin başlığı — üç katman:
  *
  *   1. Koyu şerit: koleksiyonlar (Premium · Hediye · Balon…) ve teslimat bölgesi.
  *   2. Marka satırı: logo solda, arama ortada, hesap ve sepet sağda.
- *   3. Kategori şeridi: her kategori kendi fotoğrafıyla — "buket" kelimesini
- *      okumak yerine buketi görüp tıklarsın.
+ *   3. Kategori navbar'ı: dokuz metin başlığı, hover'da açılır menü
+ *      (`MainNav`). Fotoğraflı kategori şeridi ana sayfaya indi.
  *
  * Düzen 21 Ağustos 2026'da müşteri isteğiyle değişti: marka ortadaydı, sola
  * alındı; arama ortaya geçti; üstteki boşluk koleksiyon şeridine ayrıldı.
  */
 export async function SiteHeader() {
-  const [categories, cartCount, user, area] = await Promise.all([
-    db.category.findMany({
-      where: { isHidden: false },
-      orderBy: { sortOrder: "asc" },
-    }),
+  const [cartCount, user, area] = await Promise.all([
     getCartCount(),
     getCurrentUser(),
     getSelectedArea(),
@@ -134,69 +129,13 @@ export async function SiteHeader() {
         </div>
       </div>
 
-      {/* Telefonda koleksiyonlar hap şeridi olarak arama altında durur. */}
-      <div className="border-t border-line bg-surface md:hidden">
-        <nav className="scroll-row px-4 py-2.5">
-          {COLLECTIONS.map((collection) => (
-            <Link
-              key={collection.slug}
-              href={`/urunler?koleksiyon=${collection.slug}`}
-              className="rounded-full border border-line-strong px-3 py-1.5 text-[12.5px] font-semibold text-plum-800"
-            >
-              {collection.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      {/* ------------------------ 3. Kategori şeridi ------------------------ */}
-      <div className="border-t border-line bg-plum-50/50">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
-          <nav className="scroll-row py-3 lg:justify-center">
-            <CategoryTile href="/urunler" label="Tümü" />
-            {categories.map((category) => (
-              <CategoryTile
-                key={category.id}
-                href={`/kategori/${category.slug}`}
-                label={category.name}
-                imageUrl={category.imageUrl}
-              />
-            ))}
-          </nav>
-        </div>
-      </div>
+      {/* ---------------------- 3. Kategori navbar'ı ------------------------ */}
+      {/* Metin başlıkları + açılır menü. Buradaki fotoğraflı kategori şeridi
+          ana sayfanın en üstüne taşındı (`CategoryRail`) — gerçek pazaryeri
+          düzeninde de o şerit başlığın değil gövdenin ilk elemanı. */}
+      <MainNav
+        collections={COLLECTIONS.map(({ slug, label }) => ({ slug, label }))}
+      />
     </header>
-  );
-}
-
-function CategoryTile({
-  href,
-  label,
-  imageUrl,
-}: {
-  href: string;
-  label: string;
-  imageUrl?: string | null;
-}) {
-  return (
-    <Link href={href} className="group w-[4.5rem] text-center sm:w-[5rem]">
-      <div className="arch-sm relative mx-auto h-[3.75rem] w-[3.25rem] border border-line bg-plum-100 transition-[border-color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-bloom-400">
-        {imageUrl ? (
-          <ProductImage
-            src={imageUrl}
-            alt=""
-            sizes="52px"
-            className="transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <span className="absolute inset-0 grid place-items-center font-display text-[1.15rem] text-plum-500">
-            ✽
-          </span>
-        )}
-      </div>
-      <span className="mt-1.5 block truncate text-[11.5px] font-semibold text-plum-800 transition-colors group-hover:text-bloom-700">
-        {label}
-      </span>
-    </Link>
   );
 }

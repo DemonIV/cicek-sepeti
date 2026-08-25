@@ -139,6 +139,33 @@ export default async function OrderTrackingPage({
 
       <div className="grid gap-8 lg:grid-cols-[1fr_23rem]">
         <div className="space-y-6">
+          {/* Teslim anı: kurye çiçeği bıraktığı kareyi gönderir. Demo
+              senaryosunun kapanışı burada görünür. */}
+          {order.delivery?.proofPhotoUrl && (
+            <section className="card card-pad">
+              <div className="flex items-center gap-2.5">
+                <Icon name="camera" size={17} className="text-bloom-600" />
+                <h2 className="text-base font-semibold">Teslim anı</h2>
+              </div>
+              <p className="mt-1 text-[13px] text-muted">
+                {order.delivery.courier
+                  ? `${order.delivery.courier.name} çiçeği teslim ederken çekti.`
+                  : "Kurye çiçeği teslim ederken çekti."}
+                {order.delivery.deliveredAt
+                  ? ` ${formatDateTime(order.delivery.deliveredAt)}`
+                  : ""}
+              </p>
+
+              {/* Veri URL'i olabilir; next/image yerine düz img. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={order.delivery.proofPhotoUrl}
+                alt="Teslim anında çekilen fotoğraf"
+                className="mt-4 aspect-square w-full max-w-[22rem] rounded-lg border border-line object-cover"
+              />
+            </section>
+          )}
+
           {order.prepPhotos.length > 0 && (
             <section className="card card-pad">
               <div className="flex items-center gap-2.5">

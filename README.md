@@ -130,9 +130,11 @@ hata, boş ekran veya kırık link yoktur.
    **kurye atar**. Sipariş detayında her satıcının komisyonu ayrı hesaplanır.
 8. **Rol değiştir → Kurye.** Sipariş **"İşlem gören teslimatlar"** listesindedir
    (arabaya verilmemiş olsaydı "Çiçekçi hazırlığında" bölümünde beklerdi). Kurye
-   alıcı bilgisini görür ve **"Teslim edildi"** işaretler.
-9. **Rol değiştir → Müşteri.** Takip sayfasında durum "Teslim edildi" ve
-   çiçekçinin gönderdiği **hazırlık fotoğrafı** görünür.
+   alıcı bilgisini görür, **"Teslim edildi"** işaretler ve isterse
+   **teslim anı fotoğrafını** yükler (telefonda doğrudan kamera açılır).
+9. **Rol değiştir → Müşteri.** Takip sayfasında durum "Teslim edildi", çiçekçinin
+   gönderdiği **hazırlık fotoğrafı** ve kuryenin **teslim anı fotoğrafı** görünür
+   — demo burada kapanır.
 10. **Admin panosu:** ciro, sipariş sayısı ve son 7 gün grafiği güncel.
 
 ### Gösterilebilecek diğer akışlar
@@ -143,7 +145,14 @@ hata, boş ekran veya kırık link yoktur.
 - **Bayi künyesi** (`/admin/saticilar` → *Aç*): hizmet bölgelerini mahalle
   mahalle açma, sipariş alımını durdurma, gün/sipariş kotası, hizmet puanı ve
   **"Gecikmeleri tara"** (geciken siparişlere otomatik −5 puan).
-- **İşlem kayıtları** (`/admin/kayitlar`): hangi admin neyi değiştirmiş.
+- **Bayi kotası** (bayi künyesi → *Kotalar*): gün bazlı ya da sipariş bazlı
+  sınırı bayinin bugünkü kullanımına indir, sonra müşteri rolünde o bayinin
+  ürününü sipariş etmeyi dene — ödeme adımı mağaza adı ve sayıyla engeller
+  ("… şu anda taşıyabileceği en fazla siparişe ulaştı (6/6)"). Seed'de kotalar
+  bilerek boldur; sunumun ana akışı kapalı kapıya çarpmasın.
+- **İşlem kayıtları** (`/admin/kayitlar`): hangi admin neyi değiştirmiş — üç
+  admin de kendi unvanıyla görünür (Operasyon Müdürü · Bayi İlişkileri Uzmanı ·
+  Finans Sorumlusu).
 - **Satıcı faturaları** (`/satici/faturalar`): bayi kendi komisyon faturasını
   yükler, finans ekranında karşılığı anında görünür.
 - **Satıcı ürünleri** (`/satici/urunler`): bayi mevcut ürüne dokunamaz, yalnızca
@@ -168,9 +177,10 @@ iptal edildi). Madde madde ne yapıldığı **`ISTEKLER.md`** dosyasında; başl
 | **Zamanlı indirim** | Başlangıç/bitiş saatli indirim, ana sayfada geri sayım, "haftanın ürünü" bandı. |
 | **Ürün galerisi** | Her üründe en az üç fotoğraf, seçili ürünlerde tanıtım videosu. |
 | **Hazırlık onay görseli** | Çiçekçi buketin fotoğrafını yükler, müşteri takip ekranında görür. |
+| **Teslim anı fotoğrafı** | Kurye çiçeği bıraktığı kareyi gönderir; müşteri takibinde kuryenin adı ve saatiyle görünür. |
 | **Gönderici ismi** | Kart notunun altına imza — istenmezse kutucuk kapalı kalır. |
 | **Fatura akışı** | Bayi yükler, finans onaylar; iki panelde de durum görünür. |
-| **Bayi yönetimi** | Sipariş alımını durdurma, gün/sipariş kotası, hizmet puanı (gecikmede otomatik −5), sorumlu kişi ataması. |
+| **Bayi yönetimi** | Sipariş alımını durdurma, gün/sipariş kotası (ödeme adımında uygulanır), hizmet puanı (gecikmede otomatik −5), sorumlu kişi ataması. |
 | **Arabaya verildi** | Sipariş araca verilene kadar kuryenin "işlem gören" listesine düşmez. |
 | **Üç admin + denetim izi** | Üç kişi kendi ismiyle girer; her yetki değişikliği kim yaptıysa onun adıyla kaydedilir. |
 | **Görünüm** | Outfit başlık yüzü, yuvarlak ana sayfa afişleri, logo sol / arama orta / sepet sağ, üstte koleksiyon şeridi, tanıdık e-ticaret ürün kartı. |
@@ -517,12 +527,24 @@ Küçük kararlar demo'nun amacına göre verildi; önemli olanlar:
   bayiyi onayladığında şehir açılır.
 - **Komisyon kalem bazında ve sipariş anındaki oranla** yazılır. Admin bir
   satıcının oranını sonradan değiştirirse geçmiş siparişler etkilenmez.
+- **Kota ödeme adımında uygulanır.** Kotası dolmuş bayinin ürünü sipariş
+  edilemez; sayım `src/lib/seller-quota.ts` içinde tek yerde durur, bayi
+  panosundaki kullanım çubukları da oradan beslenir. Gün kotası başka bir günle
+  çözülür, açık sipariş kotası çözülmez — iki engelin metni bu yüzden ayrıdır.
+- **Teslim anı fotoğrafı zorunlu değildir.** Kamerası olmayan bir makinede
+  sunum tıkanmasın diye teslimat fotoğrafsız da tamamlanır; kurye fotoğrafı
+  teslimattan önce de sonra da yükleyebilir.
+- **Hediye notu ürüne göre seçilir.** Seed'de her notun uyduğu kategoriler
+  yazılıdır (`GIFT_NOTES[].fits`); başsağlığı notu yalnızca çelenkte çıkar,
+  uyan not yoksa sipariş notsuz kalır.
 - **Kurye siparişe atanır, kaleme değil.** Çok satıcılı siparişte kurye, birden
   fazla alım noktasını sırayla toplar; teslimat detayında hepsi listelenir.
 - **Stok, ödeme onaylanınca düşer** — sipariş oluşturulduğunda değil.
 - **Ödeme başarısız senaryosu sipariş kaybettirmez.** Sipariş "Beklemede"
   kalır, kart ekranından tekrar denenebilir. İkisi de sunumda gösterilebilir.
-- **Teslimat ücreti** 79,90 TL, 1.000 TL üzeri sepette ücretsiz.
+- **Teslimat ücreti** 79,90 TL, 1.000 TL üzeri sepette ücretsiz. Bu rakamlar
+  **bizim varsayımımız** — müşteri onaylamadı. Bölge ya da tarihe göre değişen
+  bir ücret kuralı istenirse `src/lib/pricing.ts` tek dokunulacak yer.
 - **Sipariş numarası** `CS-YYYY-NNNN` biçiminde; demoda verilen yeni sipariş,
   seed'den gelen siparişlerle aynı seriden devam eder.
 - **Mobil önizleme ayrı bir uygulama değil**, müşteri arayüzünün telefon
@@ -534,7 +556,7 @@ Küçük kararlar demo'nun amacına göre verildi; önemli olanlar:
 - **İndirim bir zaman aralığıdır.** İndirimli fiyat yalnızca aralık içinde
   geçerlidir; aralık başlamadıysa panelde "planlandı" görünür, bitince fiyat
   kendiliğinden liste fiyatına döner. Sepete giren tutar da bu hesaptan gelir.
-- **Dosya yükleme demo ölçeğindedir.** Hazırlık fotoğrafı tarayıcıda 900 px'e
+- **Dosya yükleme demo ölçeğindedir.** Hazırlık ve teslim fotoğrafı tarayıcıda 900 px'e
   küçültülüp veritabanında saklanır (sunucuda görsel işleme yok — Render free
   plan 512 MB). Faturada PDF'in kendisi saklanmaz; adı, türü, boyutu kaydedilir,
   görsel yüklenirse küçültülmüş önizlemesi tutulur. Gerçek sistemde burada bir

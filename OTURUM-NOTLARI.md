@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 23 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 25 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -15,7 +15,9 @@ demosu. Next.js App Router + TypeScript + Tailwind + Prisma/SQLite.
 önce oraya bak.** 21 Ağustos'ta 25 maddelik ilk liste uygulandı (§1a);
 23 Ağustos'ta yedi madde daha geldi: bayiden ürün başvurusu (§1b), girişte
 adres seçimi (§1c), Çiçek Sepeti incelemesinden dört ekleme + iki düzeltme
-(§1d). Toplam **33 madde**, hepsi kapalı.
+(§1d). Toplam **33 madde**, hepsi kapalı. 25 Ağustos'ta proje istek listesiyle
+karşılaştırıldı; çıkan beş eksik kapatıldı (§1e) — toplam **38 madde**, biri
+müşteri kararında.
 
 ```bash
 npm install
@@ -46,12 +48,15 @@ ekran veya hata yok.
 
 ### Sıradaki oturum için
 
-**Kod tarafında bekleyen iş yok**; her şey `main`'de ve yayında (son commit
-`0de166e`). Müşteriye sunulmuş ama henüz istenmemiş öneriler `ISTEKLER.md`
-§I sonundaki "sırada bekleyen öneriler" listesinde duruyor: favoriler ve
-"X kişinin favorisi", özel gün hatırlatıcı, kupon/kampanya kodu, kişiye özel
-(isim yazdırma, kart tasarımı), benzer ürün şeridi, teslimat ücreti kuralları,
-kurumsal (B2B) toplu gönderim. Müşteri hangisini isterse oradan devam edilir.
+**Kod tarafında bekleyen iş yok.** 25 Ağustos'taki inceleme turu (§1e) henüz
+**push edilmedi** — çalışma ağacında duruyor. Müşteriye sunulmuş ama henüz
+istenmemiş öneriler `ISTEKLER.md` §I sonundaki "sırada bekleyen öneriler"
+listesinde: favoriler ve "X kişinin favorisi", özel gün hatırlatıcı,
+kupon/kampanya kodu, kişiye özel (isim yazdırma, kart tasarımı), bölge/tarih
+bazlı teslimat ücreti kuralları, kurumsal (B2B) toplu gönderim.
+
+**Müşteriye sorulacak tek şey:** teslimat ücreti 79,90 TL / 1.000 TL üzeri
+ücretsiz — bu rakamları biz koyduk, onay ya da farklı bir kural bekliyor.
 
 **Çalışma ortamı tuzağı — okumadan iş yapma:** `next dev` ile `next build`
 aynı `.next` klasörünü kullanıyor. Dev sunucusu açıkken build alırsan dev
@@ -313,6 +318,97 @@ takvimden **15 Eylül · 12:00 - 15:00** seçildi ve ödeme adımına o tarihle 
 
 ---
 
+## 1e. 25 Ağustos 2026 — inceleme turu (istekte olmayanlar)
+
+Kullanıcı: *"projeyi incele, ISTEKLER.md'yi incele, isteklerde olmayan bir şey
+var mı."* 33 madde kodda tek tek arandı, `Claude.md` brief'iyle ve rota
+grafiğiyle karşılaştırıldı. Altı bulgu çıktı; beşi kapatıldı, biri müşteri
+kararına bırakıldı. Tam döküm `ISTEKLER.md` §J'de. Buradakiler bir sonraki
+oturumun bilmesi gerekenler.
+
+### Kurye teslim fotoğrafı (bulgu 34) — ölü şema alanı canlandı
+
+`Delivery.proofPhotoUrl` şemada duruyordu ama **hiçbir yerde okunmuyordu**.
+Üstelik seed'deki bir ürün açıklaması bunu vaat ediyordu (`seed-data.ts`,
+51 kırmızı gül: *"Kurye teslimatında fotoğraf gönderilir"*). Kapatıldı:
+
+- Yeni bileşen `components/panel/ProofPhotoUpload.tsx`, kurye teslimat
+  detayında (`/kurye/[orderNo]`). Sipariş YOLDA ya da TESLIM_EDILDI iken —
+  veya fotoğraf zaten varsa — görünür.
+- Yeni eylemler `uploadDeliveryProof` / `removeDeliveryProof`
+  (`actions/courier.ts`), kurye + kendi teslimatı kontrolüyle.
+- Müşteri tarafı: `/siparis/[orderNo]` içinde **"Teslim anı"** kartı, kuryenin
+  adı ve teslim saatiyle.
+- **Migration gerekmedi** — alan zaten şemadaydı.
+- Küçültme mantığı `PrepPhotoUpload` içinden çıkarılıp
+  **`src/lib/image-shrink.ts`**'e taşındı; iki yükleyici de oradan geçiyor.
+  Ölçüyü değiştireceksen orada değiştir.
+- Seed: teslim edilmiş siparişlerin %70'inde dolu, ürün karesinin ikinci
+  kadrajı kullanılıyor (hazırlık karesi birinciyi kullanıyor — ikisi arka
+  arkaya aynı fotoğraf gibi durmasın).
+
+### Kota artık uygulanıyor (bulgu 35)
+
+Madde 19 yarım kalmıştı: admin kotayı ayarlıyor, bayi panosunda çubuk
+görünüyordu ama **ödeme adımında hiçbir kontrol yoktu.**
+
+- Yeni dosya **`src/lib/seller-quota.ts`** — sayımın tanımı burada:
+  `countDayDeliveries`, `countActiveOrders`, `sellerQuotaUsage`,
+  `findQuotaBlocks`. İptal edilmiş siparişler hiçbir sayıma girmez.
+- `actions/checkout.ts` mahalle kontrolünün hemen ardından kotaya bakıyor.
+- `satici/page.tsx` iki inline `db.order.count()` yerine `sellerQuotaUsage()`
+  çağırıyor — **iki yerde iki farklı tanım kalmasın**, yoksa panoda "11/12"
+  görünürken sipariş reddedilir.
+- İki engelin metni ayrı: gün kotası başka bir günle çözülür, açık sipariş
+  kotası çözülmez.
+- **Seed kotaları bilerek bol** (25/gün, 12 açık — kullanım 3/25, 6/12
+  civarında). Demo'nun ana akışı kapalı kapıya çarpmasın. Kotayı sunumda
+  göstermek isteyen admin künyesinden sınırı bugünkü kullanıma indirir;
+  README'de "Gösterilebilecek diğer akışlar" altında yazıyor. **Seed kotalarını
+  daraltma.**
+
+### Admin unvanları (bulgu 36)
+
+`admin/layout.tsx` başlığı `${user.name} · Operasyon` diye sabitti; üç adminde
+de "Operasyon" yazıyordu. `DemoBar` de rol değiştiricide üçüne "Platform
+yönetimi" diyordu. İkisi de `User.title` okuyor artık.
+
+### Hediye notları ürüne bağlandı (bulgu 37)
+
+`GIFT_NOTES` düz metin dizisiydi ve seed rastgele seçiyordu — "Başın sağ olsun"
+notu doğum günü balonuna düşebiliyordu. Artık her not `fits: string[]`
+(kategori slug'ları) taşıyor; not, siparişin **ana kaleminin** (ek ürün değil)
+kategorisine göre seçiliyor, uyan yoksa sipariş notsuz kalıyor. Yeni not
+eklerken `fits` yazmayı unutma — boş bırakırsan o not hiçbir yerde çıkmaz.
+
+### Doküman düzeltmeleri (bulgu 38, 39)
+
+- "Benzer ürün şeridi" bekleyen öneri listesindeydi ama **zaten vardı**
+  (PDP altındaki "… kategorisinden" altılı şerit). Listeden çıkarıldı.
+- Teslimat ücreti (79,90 TL / 1.000 TL) müşteri onayı olmadan konmuştu ve aynı
+  konu bekleyen öneri listesinde "yapılmamış" gibi duruyordu. Kural yerinde
+  bırakıldı, her iki dokümanda **varsayım** olduğu yazıldı. **Müşteriye
+  sorulacak.**
+
+### Test edildi
+
+Tarayıcıda uçtan uca: kurye `CS-2026-0005`'e teslim fotoğrafı yükledi →
+"Müşteriye iletildi" rozeti → müşteri takip sayfasında "Teslim anı" kartı
+göründü. Kota: Gül Bahçesi'nin açık sipariş kotası doldurulunca ödeme adımı
+*"…taşıyabileceği en fazla siparişe ulaştı (6/6)"* dedi; gün kotası 0 yapılınca
+*"seçtiğin gün için teslimat kotasını doldurdu"* + tarih alanı hatası çıktı;
+kota seed değerine dönünce sipariş normal geçti (`CS-2026-0039`). Admin
+unvanları hem panel başlığında hem rol değiştiricide doğru. Hediye notu
+eşleşmesi 34 siparişin tamamında kontrol edildi. Sonra `npm run seed` ile veri
+demo hâline döndürüldü. `tsc --noEmit` ve `npm run build` temiz (43 rota).
+
+### Kapsam dışı bırakılan
+
+Hediye Setleri ve Doğum Günü kategorilerinin ikisinde de pasta fotoğrafı var
+(§4/1). 28 Temmuz'da kapsam dışı bırakılmıştı, öyle kaldı.
+
+---
+
 ## 2a. 30 Temmuz oturumu — Render'da yayına alındı, 502 çözüldü
 
 Kullanıcı Render panelinden Blueprint ile servisi kurdu (`New → Blueprint → repo
@@ -520,10 +616,9 @@ kararlar, kapsam dışı.
 Aşağıdakiler **yapılmadı**, istenirse sıradaki oturumda ele alınabilir:
 
 1. **Seed içeriği** (28 Temmuz'da kapsam dışı bırakıldı, istenirse geri gelir):
-   Hediye Setleri ve Doğum Günü kategorilerinin ikisinde de pasta fotoğrafı var;
-   hediye notları ürüne uymuyor (ZZ bitkisinde "Başın sağ olsun").
-2. **Ürün galerisi.** Her üründe tek fotoğraf var; PDP'de küçük görsel şeridi
-   için `Product`'a çoklu görsel alanı ve seed gerekir.
+   Hediye Setleri ve Doğum Günü kategorilerinin ikisinde de pasta fotoğrafı var.
+   *(Hediye notu uyumsuzluğu 25 Ağustos'ta kapatıldı — §1e.)*
+2. ~~**Ürün galerisi.**~~ 21 Ağustos'ta yapıldı (madde 23, `ProductMedia`).
 3. **Odaklı ödeme başlığı.** Ödeme adımında 210 px'lik başlık (logo + arama +
    kategori şeridi) duruyor; gerçek e-ticarette bu adımda başlık daralır.
 4. `RoleGate`, yanlış rolle girilen sayfaya değil panelin köküne yönlendiriyor
@@ -531,10 +626,8 @@ Aşağıdakiler **yapılmadı**, istenirse sıradaki oturumda ele alınabilir:
 5. Ana sayfada başlıktaki kategori şeridi ile "Ne göndermek istersin?" ızgarası
    telefonda aynı 10 kategoriyi arka arkaya gösteriyor. Referans kalıpta da
    böyle ama istenirse biri kaldırılabilir.
-6. **Kapanış anı fikri.** Ürün açıklamasında "kurye teslimatında fotoğraf
-   gönderilir" yazıyor ama arayüzde yok. Kurye "Teslim edildi" dediğinde takip
-   sayfasında teslimat fotoğrafı kartı belirse demo senaryosu gerçek bir finalle
-   kapanır. Tasarımdan çok küçük bir özellik.
+6. ~~**Kapanış anı fikri.**~~ 25 Ağustos'ta yapıldı — kurye teslim fotoğrafı,
+   §1e.
 
 ---
 
@@ -567,3 +660,115 @@ aynı veri.
 - Tasarım token'ları `src/app/globals.css` içinde. Bileşen sınıflarının API'si
   (`.btn`, `.card`, `.field`, `.badge`, `.data-table`, `.gift-note`) değişmedi;
   değerler değişti. Yeni ekran yazarken bu sınıfları kullan.
+
+---
+
+## 25 Ağustos 2026 — Kategori navbar'ı (ciceksepeti düzeni)
+
+Müşteri, ciceksepeti.com'un navbar'ındaki kategorileri gezip bizde olmayanları
+aynı düzende istedi. Canlı site tarayıcıdan incelendi, çıkarılan yapı
+**`CS-NAVBAR-GOZLEM.md`** dosyasına yazıldı (9 üst başlık, her birinin alt
+listesi, iki menü kalıbı, ölçüler, bizdeki karşılıkları).
+
+**Ne değişti**
+
+- Yeni **`src/lib/nav-tree.ts`** — dokuz üst başlık ve alt dallar statik ağaç.
+  Kategori tablosu şişirilmedi: her yaprak mevcut bir sorguya bağlanır
+  (`/kategori/<slug>`, `?koleksiyon=`, `?amac=`, `?q=`). Üç eksen (kategori /
+  koleksiyon / gönderim amacı) tek ağaçta birleşti.
+- Yeni **`src/components/site/MainNav.tsx`** — metin başlıkları + hover'da tam
+  genişlik panel. İlk başlık ("Çiçek") mega menü: solda 12 dal, sağda seçili
+  dalın altları. Diğer sekizi çok sütunlu düz liste. Esc kapatır, klavyeyle
+  gezilir.
+- **`SiteHeader`** üçüncü katmanı artık bu navbar. Fotoğraflı kategori şeridi
+  ana sayfanın en üstüne indi (gerçek sitede de o şerit gövdenin ilk elemanı).
+  Telefonda başlıkta iki hap satırı olmasın diye koleksiyon hapları da
+  `MainNav`'ın tek şeridine katıldı.
+
+**Dikkat — SQLite arama tuzağı**
+
+`contains` filtresi SQLite `LIKE`'ına düşer; **yalnızca ASCII harflerde**
+büyük/küçük harf ayrımını yok sayar. "Ç", "İ", "Ö", "Ş" ile başlayan ürün
+adları küçük harfli terimle bulunamıyor — `?q=çikolata seti` boş dönerken
+`?q=Çikolata Seti` çalışıyor. Ağaçtaki terimler bu yüzden ürün adındaki
+yazımla verildi. Arama kutusu için de geçerli bir kısıt; ileride düzeltilecekse
+adı normalize eden bir sütun gerekir.
+
+Ayrıca **onay bekleyen satıcının ürünü hiçbir yerde listelenmez** — "Lale
+Buketi" ve "Kuru Çiçek Aranjmanı" bu yüzden menüden çıkarıldı. Ağacın her
+yaprağı ürün döndürecek şekilde bir kerelik betikle doğrulandı; boş yaprak yok.
+
+### Aynı gün — kategori vitrini
+
+Müşteri, ciceksepeti'nde kategoriye tıklayınca ürünlerin **üstünde** çıkan
+afiş/kutucuk bloklarını da istedi (ekran görüntüleri
+`Belgeler\ccicekspetifotoğraflar`). Canlı `/d/cicek` sayfasından ölçülen sıra
+birebir uygulandı:
+
+    ikili afiş (2.4:1) → alt kategori ızgarası (6 sütun × 2 satır)
+    → üçlü afiş → ikili afiş → ürün ızgarası
+
+- Yeni **`src/lib/category-showcase.ts`** — on kategorinin her biri için 7 afiş
+  ve **11 kutucuk**. Kutucuk sayısı 11 çünkü "Tümünü görüntüle" ile birlikte 12
+  eder; 12, ızgaranın 3 / 4 / 6 sütunlu hâllerinde tam satırla kapanır.
+- Yeni **`src/components/site/CategoryShowcase.tsx`** — afiş satırları ve
+  kutucuk ızgarası. Afiş fotoğrafı ayrı bir görsel varlık değil, **mevcut bir
+  ürünün** fotoğrafı (`productSlug`). Demoya yeni dosya girmiyor, kırık görsel
+  olmuyor; ürün yayından kalkarsa o kare sessizce düşüyor.
+- Afiş yazısı referansta sağda; burada sola alındı — Türkçe başlıklar uzun,
+  sola yaslı okununca satır kırılmıyor.
+
+Nav ağacındaki kural burada da geçerli: bütün afiş ve kutucuk adresleri tek
+seferlik betikle sorgulandı, **boş dönen yok**.
+
+### Aynı gün — üst başlıklara vitrin sayfaları
+
+Kategori vitrini beğenilince aynısı navbar'ın **üst başlıkları** için de
+istendi. Bu başlıkların bir kısmının `Category` tablosunda karşılığı yok
+("Çiçek" yedi kategoriyi toplar, "Hediye" bir koleksiyon sorgusudur, "Kişiye
+Özel" elle seçilmiş bir listedir), o yüzden tabloya satır açmak yerine yeni bir
+rota açıldı:
+
+- **`/vitrin/[slug]`** — `src/app/(shop)/vitrin/[slug]/page.tsx`.
+  Kategori sayfasıyla aynı iskelet (kapak → kardeş başlıklar → vitrin →
+  ürün ızgarası), tek fark ürünlerin `landing.ts` içindeki `where` parçasından
+  gelmesi. `CategoryShowcase` bileşeni ikisini ayırt etmiyor.
+- **`src/lib/landing.ts`** — altı vitrin: Çiçek (44 ürün), Yenilebilir Çiçek
+  (10), Gönderim Amacı (45), Hediye (23), Kişiye Özel (15), El Yapımı (11).
+  Her biri `where` + `showcase` + kapak ürünü.
+- `nav-tree.ts`'te bu altı başlığın `href`'i artık `/vitrin/<slug>`.
+  Böylece navbar'da vitrini olmayan üst başlık kalmadı: kalan üçü zaten
+  kategori sayfasına gidiyor (Doğum Günü, Orkide/Saksı, Hediye Setleri).
+
+"Kişiye Özel" ve "El Yapımı" pazaryerinde bir alan değil — ürünler elle seçildi
+(`PERSONAL_SLUGS`, `HANDMADE_SLUGS`). Gerçek sistemde bunlar ürün üzerinde bir
+etiket olur; demoda liste yeterli.
+
+Doğrulama yine betikle: altı vitrinin ürün sayısı, kapak fotoğrafı ve
+108 afiş/kutucuk adresinin hepsi sorgulandı — boş dönen yok.
+
+### Aynı gün — sepet doluyken adres + geri sayım bandı
+
+Navbar'ın altında, ciceksepeti'ndeki gibi iki panelli bir bant istendi:
+solda gönderim adresi, sağda aynı gün teslimat için kalan süre.
+
+- **`src/components/site/DeliveryBand.tsx`** — istemci bileşeni.
+  Sol panel **fern** (token'ın niyeti: yalnızca olumlu durum), sağ panel
+  **gold** (yalnızca kıtlık). Sol panel `openAreaDialog()` ile mevcut adres
+  penceresini açar, JS kapalıysa `/teslimat-bolgesi` sayfasına düşer.
+- `(shop)/layout.tsx` bandı **yalnızca `cartCount > 0` iken** çiziyor.
+  Boş sepette geri sayım baskı kurar ama karşılığı yok; ürün sepete girdiği an
+  "bunu bugün alabilir miyim" sorusu gerçek oluyor.
+- Adres satırı önce seçili mahalledeki kayıtlı adresi gösterir (sokak dahil),
+  yoksa mahallenin tam adına düşer, bölge hiç seçilmemişse "Adres seç" der.
+
+**`delivery-time.ts`'e eklenenler:** `SAME_DAY_WINDOW_START_HOUR` (09:00),
+`istanbulMinutes`, `formatMinutesLeft`, `sameDayWindow`. `timeUntilCutoff`
+artık bunları kullanıyor — kesim saati hesabı hâlâ tek yerde.
+
+Süre sunucuda bir kez hesaplanıp istemcide dakikası düşülüyor (15 sn'de bir
+tik). Pencere kapalıyken ilerleme çubuğu **hiç çizilmiyor**: dolu bir çubuk
+"hâlâ vakit var" der, oysa yok.
+
+İki durum da tarayıcıda görüldü: 18:00 öncesi "Bugün teslim için son 47 dakika"
++ altın çubuk, sonrası "Aynı gün penceresi kapandı" + "yarın sabah tezgâhta".

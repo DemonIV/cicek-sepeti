@@ -559,7 +559,15 @@ async function main() {
     const recipient = pick(CUSTOMERS);
     const deliveryDate = new Date(createdAt.getTime() + rint(0, 2) * DAY);
     const isCancelled = row.status === "IPTAL";
-    const giftNote = chance(0.82) ? pick(GIFT_NOTES) : null;
+    // Hediye notu ürünün kategorisine uymalı: "Başın sağ olsun" notu çelenkte
+    // durur, doğum günü buketinde değil. Ana kalem (ek ürün değil) belirler;
+    // uyan not yoksa sipariş notsuz kalır.
+    const noteCategory = categories.find((c) => c.id === chosen[0].categoryId)?.slug;
+    const noteOptions = noteCategory
+      ? GIFT_NOTES.filter((n) => n.fits.includes(noteCategory))
+      : [];
+    const giftNote =
+      chance(0.82) && noteOptions.length > 0 ? pick(noteOptions).text : null;
 
     const orderNo = `CS-${now.getFullYear()}-${String(orderCounter++).padStart(4, "0")}`;
 
@@ -665,6 +673,14 @@ async function main() {
     const maybeAssigned = row.status === "HAZIRLANIYOR" && chance(0.5);
     const courier = needsCourier || maybeAssigned ? pick(couriers) : null;
 
+    // Teslim anı fotoğrafı: kurye çiçeği bıraktığı kareyi gönderir, müşteri
+    // takip ekranında görür. Hazırlık karesinden farklı bir kadraj kullanılır
+    // ki ikisi arka arkaya aynı fotoğraf gibi durmasın.
+    const proofPhotoUrl =
+      row.status === "TESLIM_EDILDI" && chance(0.7)
+        ? cropVariant(chosen[0].imageUrl, CROP_VARIANTS[1])
+        : null;
+
     await db.delivery.create({
       data: {
         orderId: created.id,
@@ -683,6 +699,7 @@ async function main() {
         dispatchedAt: needsCourier ? new Date(stamp - rint(40, 200) * 60 * 1000) : null,
         pickedUpAt: needsCourier ? new Date(stamp - rint(30, 180) * 60 * 1000) : null,
         deliveredAt: row.status === "TESLIM_EDILDI" ? new Date(stamp) : null,
+        proofPhotoUrl,
       },
     });
 

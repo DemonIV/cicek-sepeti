@@ -7,6 +7,7 @@ import { getCartDetail, writeCart } from "@/lib/cart";
 import { createOrderFromCart, settlePayment } from "@/lib/orders";
 import { DELIVERY_SLOTS } from "@/lib/enums";
 import { isDeliverySlotAvailable } from "@/lib/delivery-time";
+import { findQuotaBlocks } from "@/lib/seller-quota";
 import { db } from "@/lib/db";
 
 export type CheckoutState = {
@@ -95,6 +96,26 @@ export async function placeOrder(
     };
   }
 
+  // Bayi kotaları (madde 19): gün bazlı ve sipariş bazlı sınır. Kotası dolmuş
+  // mağaza o güne sipariş alamaz; mahalle engeliyle aynı dille söylenir.
+  const deliveryDate = new Date(`${deliveryDateRaw}T12:00:00`);
+  const quotaBlocks = await findQuotaBlocks(
+    cart.items.map((item) => item.sellerId),
+    deliveryDate,
+  );
+
+  if (quotaBlocks.length > 0) {
+    // Gün bazlı engelde tarih alanı işaretlenir; sipariş bazlı engelde
+    // tarihin suçu yok, yalnızca üstteki açıklama gösterilir.
+    const dayBlocked = quotaBlocks.some((block) => block.kind === "daily");
+    return {
+      errors: dayBlocked ? { deliveryDate: "Bu gün için kapasite dolu." } : {},
+      message: `${quotaBlocks
+        .map((block) => block.reason)
+        .join(" ")} Dilersen bu mağazanın ürünlerini sepetten çıkarıp devam edebilirsin.`,
+    };
+  }
+
   const order = await createOrderFromCart(
     {
       customerId: user.id,
@@ -107,7 +128,7 @@ export async function placeOrder(
       giftNote: giftNote || null,
       // Kutucuk işaretlenmediyse gönderici adı gitmez — kart imzasız kalır.
       senderName: giftNote ? senderName || null : null,
-      deliveryDate: new Date(`${deliveryDateRaw}T12:00:00`),
+      deliveryDate,
       deliverySlot,
     },
     cart.items,

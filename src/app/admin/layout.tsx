@@ -39,7 +39,7 @@ export default async function AdminLayout({
     <PanelShell
       root="/admin"
       subtitle="Admin paneli"
-      brand={`${user.name} · Operasyon`}
+      brand={`${user.name} · ${user.title ?? "Operasyon"}`}
       items={[
         { href: "/admin", label: "Genel bakış", icon: "dashboard" },
         {

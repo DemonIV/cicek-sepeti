@@ -16,7 +16,7 @@
 
 @theme {
   /* Tipografi */
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   /* Hediye notunun el yazısı hissi — yalnızca `.gift-note` ailesinde. */
   --font-note: var(--font-bodoni-note), "Didot", "Bodoni MT", Georgia, serif;

@@ -27,7 +27,7 @@ export async function DemoBar() {
       u.role === "SELLER"
         ? (u.seller?.storeName ?? null)
         : u.role === "ADMIN"
-          ? "Platform yönetimi"
+          ? (u.title ?? "Platform yönetimi")
           : u.role === "COURIER"
             ? "Teslimat"
             : u.email,
@@ -67,7 +67,7 @@ export async function DemoBar() {
             id: user.id,
             name: user.name,
             role: user.role as Role,
-            detail: user.seller?.storeName ?? user.email,
+            detail: user.seller?.storeName ?? user.title ?? user.email,
           }}
           accounts={grouped}
         />

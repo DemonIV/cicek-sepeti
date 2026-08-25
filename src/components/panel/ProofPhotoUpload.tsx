@@ -1,22 +1,35 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { uploadPreparationPhoto } from "@/app/actions/seller";
+import {
+  removeDeliveryProof,
+  uploadDeliveryProof,
+} from "@/app/actions/courier";
 import { shrinkToDataUrl } from "@/lib/image-shrink";
 import { Icon } from "@/components/ui/Icon";
 
 /**
- * Hazırlık onay görseli (madde 22).
+ * Teslim anı fotoğrafı.
  *
- * Çiçekçi buketi hazırlayınca fotoğrafını çeker; müşteri sipariş takibinde
- * aynı kareyi görür. Küçültme `lib/image-shrink.ts` içinde — kuryenin teslim
- * karesi de aynı yoldan geçer.
+ * Çiçekçinin hazırlık karesinin (madde 22) teslimat tarafındaki karşılığı:
+ * kurye çiçeği bıraktığı yeri çeker, müşteri takip ekranında görür. Ürün
+ * açıklamalarında verilen "kurye teslimatında fotoğraf gönderilir" sözünün
+ * arayüzdeki karşılığı budur.
+ *
+ * Zorunlu değil — kamerası olmayan bir makinede sunum yapılabilsin diye
+ * teslimat fotoğrafsız da tamamlanabilir.
  */
-
-export function PrepPhotoUpload({ orderId }: { orderId: string }) {
+export function ProofPhotoUpload({
+  orderId,
+  existing,
+  delivered,
+}: {
+  orderId: string;
+  existing: string | null;
+  delivered: boolean;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
@@ -39,13 +52,19 @@ export function PrepPhotoUpload({ orderId }: { orderId: string }) {
   const send = () => {
     if (!preview) return;
     startTransition(async () => {
-      const result = await uploadPreparationPhoto(orderId, preview, note);
+      const result = await uploadDeliveryProof(orderId, preview);
       setMessage({ ok: result.ok, text: result.message });
       if (result.ok) {
         setPreview(null);
-        setNote("");
         if (inputRef.current) inputRef.current.value = "";
       }
+    });
+  };
+
+  const drop = () => {
+    startTransition(async () => {
+      const result = await removeDeliveryProof(orderId);
+      setMessage({ ok: result.ok, text: result.message });
     });
   };
 
@@ -53,12 +72,37 @@ export function PrepPhotoUpload({ orderId }: { orderId: string }) {
     <div className="card card-pad">
       <div className="flex items-center gap-2.5">
         <Icon name="camera" size={17} className="text-plum-500" />
-        <h2 className="text-[15px] font-semibold">Hazırlık onay görseli</h2>
+        <h2 className="text-[15px] font-semibold">Teslim anı fotoğrafı</h2>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-        Buketin fotoğrafını çek; müşteri sipariş takip ekranında görür. Telefonla
-        açtıysan doğrudan kamerayı kullanabilirsin.
+        {delivered
+          ? "Çiçeği bıraktığın kareyi ekle; müşteri sipariş takibinde görür."
+          : "Çiçeği bıraktığında bir kare çek. Teslimatı işaretlemeden önce de sonra da yükleyebilirsin."}{" "}
+        Zorunlu değil.
       </p>
+
+      {existing && !preview && (
+        <div className="mt-3 space-y-2">
+          {/* Veri URL'i olduğu için next/image yerine düz img. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={existing}
+            alt="Teslim anı fotoğrafı"
+            className="aspect-square w-full max-w-[16rem] rounded-lg border border-line object-cover"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="badge tone-leaf">Müşteriye iletildi</span>
+            <button
+              type="button"
+              onClick={drop}
+              disabled={pending}
+              className="btn btn-ghost btn-sm"
+            >
+              Kaldır
+            </button>
+          </div>
+        </div>
+      )}
 
       <input
         ref={inputRef}
@@ -75,29 +119,12 @@ export function PrepPhotoUpload({ orderId }: { orderId: string }) {
 
       {preview && (
         <div className="mt-3 space-y-3">
-          {/* Veri URL'i olduğu için next/image yerine düz img: optimize
-              edilecek bir uzak kaynak yok. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
-            alt="Yüklenecek hazırlık fotoğrafı"
+            alt="Yüklenecek teslim fotoğrafı"
             className="aspect-square w-full max-w-[16rem] rounded-lg border border-line object-cover"
           />
-
-          <div>
-            <label htmlFor="prep-note" className="field-label">
-              Not (isteğe bağlı)
-            </label>
-            <input
-              id="prep-note"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              maxLength={120}
-              className="field"
-              placeholder="Örn. Kurdelesi bağlandı, kart iliştirildi."
-            />
-          </div>
-
           <button
             type="button"
             onClick={send}

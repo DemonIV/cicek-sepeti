@@ -11,6 +11,9 @@ süreç notu — kod işi değil).
 > ekleyebilsin, ürün admin onayından geçsin — §G. (2) Müşteri ürünlere bakmadan
 > önce adres seçsin, katalog o bölgeye göre gelsin — §H. (3) Çiçek Sepeti
 > incelemesinden gelen dört ekleme — §I. Hepsi uygulandı.
+>
+> **İnceleme — 25 Ağustos 2026:** proje istek listesiyle karşılaştırıldı; eksik
+> kalan ya da listede olmayan altı madde §J'de.
 
 ---
 
@@ -60,8 +63,8 @@ süreç notu — kod işi değil).
 | 16 | Bayinin **sipariş alımını durdurabilme** | [x] | Künyede "Sipariş alımını durdur" (sebep yazılabilir). Kapalıyken ürünler vitrinde görünür ama sepete eklenemez; bayi kendi panosunda kırmızı uyarıyı ve sebebi görür. |
 | 17 | Bayilere **puan sistemi** (gecikme → −5) | [x] | `Seller.score` 100'den başlar, `SellerScoreEvent` her hareketi tutar. "Gecikmeleri tara" düğmesi teslim tarihi geçmiş siparişleri bulup otomatik −5 yazar (aynı sipariş iki kez cezalandırılmaz). Elle düzeltme de var. Puan hem admin künyesinde hem satıcı panosunda görünür. |
 | 18 | Sipariş **arabaya verildikten sonra** kuryeye düşsün | [x] | Satıcının "Yola çıkar" düğmesi **"Arabaya verildi"** oldu; `Delivery.dispatchedAt` işaretlenir. Kurye ekranı ikiye ayrıldı: **İşlem gören teslimatlar** (arabaya verilmiş) ve **Çiçekçi hazırlığında** (henüz verilmemiş). |
-| 19 | Bayilere **gün bazlı ve sipariş bazlı kota** | [x] | `Seller.dailyQuota` (bir günde en fazla teslimat) ve `activeQuota` (aynı anda açık sipariş). Admin künyeden ayarlar; bayi panosunda kullanım çubuklarıyla görünür. |
-| 20 | **3 admin kendi ismiyle girsin**, kim neyi değiştirmiş görünsün | [x] | Üç admin hesabı (Nazlı Öztürk · Operasyon, Kerem Balcı · Bayi İlişkileri, Sibel Aksu · Finans) rol değiştiricide. Yetki değiştiren her admin eylemi `AuditLog`'a yazılır; `/admin/kayitlar` ekranında kişiye göre filtrelenir. |
+| 19 | Bayilere **gün bazlı ve sipariş bazlı kota** | [x] | `Seller.dailyQuota` (bir günde en fazla teslimat) ve `activeQuota` (aynı anda açık sipariş). Admin künyeden ayarlar; bayi panosunda kullanım çubuklarıyla görünür. **Kota ödeme adımında uygulanır** (25 Ağu 2026): dolu bayinin ürünü seçilen güne sipariş edilemez, müşteri mağaza adıyla ve sayıyla uyarılır. Sayımın tanımı `src/lib/seller-quota.ts` içinde tek yerde. |
+| 20 | **3 admin kendi ismiyle girsin**, kim neyi değiştirmiş görünsün | [x] | Üç admin hesabı (Nazlı Öztürk · Operasyon Müdürü, Kerem Balcı · Bayi İlişkileri Uzmanı, Sibel Aksu · Finans Sorumlusu) rol değiştiricide. Yetki değiştiren her admin eylemi `AuditLog`'a yazılır; `/admin/kayitlar` ekranında kişiye göre filtrelenir. 25 Ağu 2026: panel başlığı ve rol değiştirici **herkesin kendi unvanını** gösterir (önce üçünde de "Operasyon" yazıyordu). |
 
 ## G. Bayiden ürün başvurusu (23 Ağustos 2026)
 
@@ -106,8 +109,33 @@ karşılığı olmayan başlıklar çıkarıldı. Dördü uygulandı.
 
 **Sırada bekleyen öneriler** (uygulanmadı, müşteri kararı bekliyor): favoriler
 ve "X kişinin favorisi" sosyal kanıtı, özel gün hatırlatıcı, kupon/kampanya
-kodu, kişiye özel (isim yazdırma, kart tasarımı), benzer ürün şeridi, teslimat
-ücreti kuralları, kurumsal (B2B) toplu gönderim.
+kodu, kişiye özel (isim yazdırma, kart tasarımı), **bölge/tarih bazlı teslimat
+ücreti kuralları** (bugün tek kural var: 79,90 TL, 1.000 TL üzeri ücretsiz —
+rakamlar bizim varsayımımız, müşteri onayı bekliyor), kurumsal (B2B) toplu
+gönderim.
+
+> 25 Ağu 2026 düzeltmesi: bu listede "benzer ürün şeridi" de yazıyordu, oysa
+> **zaten var** — ürün sayfasının altındaki "… kategorisinden" altılı şerit.
+> Listeden çıkarıldı.
+
+## J. İnceleme sonrası kapatılanlar (25 Ağustos 2026)
+
+Müşteri "isteklerde olmayan bir şey var mı" diye baktırdı. Proje `ISTEKLER.md`
+ile satır satır karşılaştırıldı; çıkan altı maddenin beşi kapatıldı, biri
+müşteri kararına bırakıldı.
+
+| # | Bulgu | Durum | Ne yapıldı |
+| --- | --- | --- | --- |
+| 34 | **Kurye teslim fotoğrafı** — bir ürün açıklaması "kurye teslimatında fotoğraf gönderilir" diyordu, `Delivery.proofPhotoUrl` alanı şemada duruyordu ama arayüzde karşılığı yoktu | [x] | Kurye teslimat detayında **"Teslim anı fotoğrafı"** kartı: telefonda doğrudan kamera açılır, kare 900 px'e küçültülüp kaydedilir, yanlış giderse kaldırılabilir. Müşteri takip ekranında **"Teslim anı"** kartı olarak kuryenin adı ve teslim saatiyle görünür. Zorunlu değil — kamerası olmayan bir makinede sunum tıkanmasın. Seed'de teslim edilmiş siparişlerin %70'inde dolu. Küçültme artık `src/lib/image-shrink.ts` içinde tek yerde (hazırlık görseli de oradan geçiyor). |
+| 35 | **Kota (madde 19) uygulanmıyordu** — admin ayarlıyor, bayi panosunda çubuk görünüyordu ama ödeme adımında hiçbir kontrol yoktu | [x] | `src/lib/seller-quota.ts`: gün bazlı ve sipariş bazlı sayım tek yerde. Ödeme adımı mahalle kontrolüyle aynı dille engelliyor. İki engelin tavsiyesi ayrı: gün kotasında "başka bir gün seç", açık sipariş kotasında "mağaza teslimatlarını tamamlayınca". Bayi panosundaki çubuklar da artık aynı fonksiyondan besleniyor — iki yerde iki farklı sayım kalmadı. |
+| 36 | **Admin unvanları** — üç admin de panelde "· Operasyon" görünüyordu (madde 20 eksik kalmış) | [x] | Panel başlığı ve rol değiştirici `User.title` okuyor: Operasyon Müdürü · Bayi İlişkileri Uzmanı · Finans Sorumlusu. |
+| 37 | **Hediye notları ürünle ilgisizdi** — seed notu rastgele seçiyordu, "Başın sağ olsun" doğum günü siparişine düşebiliyordu | [x] | Her not artık uyduğu kategorileri taşıyor (`GIFT_NOTES[].fits`); not, siparişin ana kaleminin kategorisine göre seçiliyor, uyan yoksa sipariş notsuz kalıyor. Yeni bebek için ikinci bir not eklendi (dört siparişte de aynısı çıkıyordu). Başsağlığı notu yalnızca çelenkte. |
+| 38 | **"Benzer ürün şeridi" bekleyen öneri sayılmıştı**, oysa çalışıyordu | [x] | Liste düzeltildi (§I sonu). |
+| 39 | **Teslimat ücreti kuralı** (79,90 TL / 1.000 TL üzeri ücretsiz) müşteri onayı olmadan konmuştu ve aynı konu bekleyen öneri listesinde "yapılmamış" gibi duruyordu | **Karar bekliyor** | Kural yerinde bırakıldı, listede varsayım olduğu yazıldı. Müşteri rakamları ya onaylayacak ya da bölge/tarih bazlı kural isteyecek. |
+
+**Kapsam dışı bırakılan tek kusur:** Hediye Setleri ve Doğum Günü
+kategorilerinin ikisinde de pasta fotoğrafı var. 28 Temmuz'da kapsam dışı
+bırakılmıştı, öyle kaldı.
 
 ---
 

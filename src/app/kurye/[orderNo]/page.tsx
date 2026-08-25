@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, formatPrice } from "@/lib/format";
 import { allowedActions, type OrderStatus } from "@/lib/order-status";
 import { PanelHeader } from "@/components/panel/PanelShell";
 import { CourierActions } from "@/components/panel/CourierActions";
+import { ProofPhotoUpload } from "@/components/panel/ProofPhotoUpload";
 import { DeliveryStatusBadge, OrderStatusBadge } from "@/components/ui/Badge";
 import { GiftNoteCard } from "@/components/ui/GiftNote";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -45,6 +46,11 @@ export default async function CourierDeliveryDetail({
     notFound();
 
   const actions = allowedActions("COURIER", order.status as OrderStatus);
+  const delivered = order.status === "TESLIM_EDILDI";
+  // Teslim fotoğrafı yola çıkıldığında anlam kazanır; yüklenmişse her zaman
+  // görünsün ki kurye yanlış kareyi geri alabilsin.
+  const showProof =
+    delivered || order.status === "YOLDA" || Boolean(order.delivery.proofPhotoUrl);
   const pickupPoints = Array.from(
     new Map(order.items.map((item) => [item.sellerId, item.seller])).values(),
   );
@@ -216,6 +222,14 @@ export default async function CourierDeliveryDetail({
                 Bu siparişte kart yok.
               </p>
             </div>
+          )}
+
+          {showProof && (
+            <ProofPhotoUpload
+              orderId={order.id}
+              existing={order.delivery.proofPhotoUrl}
+              delivered={delivered}
+            />
           )}
 
           <div className="card card-pad">

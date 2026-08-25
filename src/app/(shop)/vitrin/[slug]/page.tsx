@@ -6,12 +6,17 @@ import { ProductCard } from "@/components/site/ProductCard";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/ui/Icon";
-import { areaFilter, areaLabel, getSelectedArea } from "@/lib/delivery-area";
 import { CategoryShowcase } from "@/components/site/CategoryShowcase";
-import { findShowcase, showcaseProductSlugs } from "@/lib/category-showcase";
+import { showcaseProductSlugs } from "@/lib/category-showcase";
+import { LANDINGS, findLanding } from "@/lib/landing";
+import { areaFilter, areaLabel, getSelectedArea } from "@/lib/delivery-area";
 import { sameDayAvailable } from "@/lib/delivery-time";
 
 type Params = Promise<{ slug: string }>;
+
+export function generateStaticParams() {
+  return LANDINGS.map((landing) => ({ slug: landing.slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -19,60 +24,63 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const category = await db.category.findUnique({ where: { slug } });
-  return { title: category?.name ?? "Kategori bulunamadı" };
+  return { title: findLanding(slug)?.title ?? "Sayfa bulunamadı" };
 }
 
-export default async function CategoryPage({ params }: { params: Params }) {
+/**
+ * Vitrin sayfası — navbar'ın üst başlıkları (`/vitrin/cicek`, `/vitrin/hediye`…).
+ *
+ * Kategori sayfasıyla aynı iskelet: kapak → kardeş başlıklar → vitrin (afiş
+ * satırları + alt kategori kutucukları) → ürün ızgarası. Fark, ürünlerin
+ * `Category` tablosundan değil `landing.ts` içindeki `where` parçasından
+ * gelmesi; "Çiçek" yedi kategoriyi toplar, "Kişiye Özel" elle seçilmiş bir
+ * listedir.
+ */
+export default async function LandingPage({ params }: { params: Params }) {
   const { slug } = await params;
+  const landing = findLanding(slug);
+  if (!landing) notFound();
 
-  // Kategori de bölgeye göre daralır: çiçek kargoya girmiyor, alıcının
-  // mahallesine hizmet veren çiçekçiden çıkıyor (madde 12). Bölge seçili
-  // değilse liste daralmaz, ama adres penceresi kendiliğinden açılır.
+  // Kategori sayfasındaki kural burada da geçerli: bölge seçiliyse yalnızca
+  // oraya gönderilebilen ürünler listelenir (madde 12).
   const [area, byArea] = await Promise.all([getSelectedArea(), areaFilter()]);
   const sameDayOpen = sameDayAvailable(new Date());
 
-  const category = await db.category.findUnique({
-    where: { slug },
-    include: {
-      products: {
-        where: {
-          isActive: true,
-          isAddOn: false,
-          seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
-        },
-        include: { seller: true },
-        orderBy: [{ isFeatured: "desc" }, { reviewCount: "desc" }],
+  const [products, cover, showcaseRows] = await Promise.all([
+    db.product.findMany({
+      where: {
+        isActive: true,
+        seller: { status: "APPROVED", ...(byArea.seller ?? {}) },
+        ...landing.where,
       },
-    },
-  });
-
-  if (!category) notFound();
-
-  const others = await db.category.findMany({
-    where: { slug: { not: slug }, isHidden: false },
-    orderBy: { sortOrder: "asc" },
-  });
-
-  // Vitrin (afiş satırları + alt kategori ızgarası) fotoğraflarını gerçek
-  // ürünlerden alır; hepsi tek sorguda çekilir. Ürün yayından kalkarsa o kare
-  // sessizce düşer — `CategoryShowcase` fotoğrafı olmayanı çizmez.
-  const showcase = findShowcase(slug);
-  const showcaseImages: Record<string, string> = {};
-  if (showcase) {
-    const rows = await db.product.findMany({
-      where: { slug: { in: showcaseProductSlugs(showcase) }, isActive: true },
+      include: { seller: true },
+      orderBy: [{ isFeatured: "desc" }, { reviewCount: "desc" }],
+    }),
+    db.product.findUnique({
+      where: { slug: landing.coverProductSlug },
+      select: { imageUrl: true },
+    }),
+    // Vitrin fotoğrafları da gerçek ürünlerden gelir; hepsi tek sorguda.
+    db.product.findMany({
+      where: {
+        slug: { in: showcaseProductSlugs(landing.showcase) },
+        isActive: true,
+      },
       select: { slug: true, imageUrl: true },
-    });
-    for (const row of rows) showcaseImages[row.slug] = row.imageUrl;
-  }
+    }),
+  ]);
+
+  const showcaseImages: Record<string, string> = {};
+  for (const row of showcaseRows) showcaseImages[row.slug] = row.imageUrl;
+
+  const siblings = LANDINGS.filter((other) => other.slug !== landing.slug);
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
       <section className="relative overflow-hidden rounded-xl border border-line bg-plum-950">
         <div className="absolute inset-0 opacity-40">
           <ProductImage
-            src={category.imageUrl ?? ""}
+            src={cover?.imageUrl ?? ""}
             alt=""
             priority
             sizes="100vw"
@@ -80,13 +88,16 @@ export default async function CategoryPage({ params }: { params: Params }) {
         </div>
         <div className="relative px-6 py-14 sm:px-10 sm:py-20">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-bloom-200">
-            Kategori
+            Vitrin
           </p>
           <h1 className="mt-3 text-[clamp(2rem,5vw,3.2rem)] leading-none text-white">
-            {category.name}
+            {landing.title}
           </h1>
-          <p className="tabular mt-3 text-sm text-white/70">
-            {category.products.length} ürün ·{" "}
+          <p className="mt-3 max-w-xl text-sm text-white/70">
+            {landing.tagline}
+          </p>
+          <p className="tabular mt-2 text-sm text-white/50">
+            {products.length} ürün ·{" "}
             {area
               ? `${areaLabel(area)} bölgesine gönderilebilenler`
               : "onaylı çiçekçilerden"}
@@ -95,13 +106,13 @@ export default async function CategoryPage({ params }: { params: Params }) {
       </section>
 
       <nav className="scroll-row mt-6">
-        {others.map((other) => (
+        {siblings.map((other) => (
           <Link
-            key={other.id}
-            href={`/kategori/${other.slug}`}
+            key={other.slug}
+            href={`/vitrin/${other.slug}`}
             className="whitespace-nowrap rounded-md border border-line bg-surface px-3 py-1.5 text-[13px] text-plum-800 transition-colors hover:border-plum-300"
           >
-            {other.name}
+            {other.label}
           </Link>
         ))}
       </nav>
@@ -122,18 +133,18 @@ export default async function CategoryPage({ params }: { params: Params }) {
         </p>
       )}
 
-      {showcase && category.products.length > 0 && (
+      {products.length > 0 && (
         <CategoryShowcase
-          showcase={showcase}
+          showcase={landing.showcase}
           images={showcaseImages}
-          allHref={`/urunler?kategori=${category.slug}`}
+          allHref="/urunler"
         />
       )}
 
       <div className="mt-8 flex items-center justify-between gap-3">
         <h2 className="section-title">Ürünler</h2>
         <Link
-          href={`/urunler?kategori=${category.slug}`}
+          href="/urunler"
           className="link-underline text-[13px] font-semibold text-plum-800"
         >
           Filtrelerle ara →
@@ -141,17 +152,17 @@ export default async function CategoryPage({ params }: { params: Params }) {
       </div>
 
       <div className="mt-4">
-        {category.products.length === 0 ? (
+        {products.length === 0 ? (
           <EmptyState
             title={
               area
-                ? "Bu kategoride bölgene gönderilebilen ürün yok"
-                : "Bu kategoride henüz ürün yok"
+                ? "Bölgene gönderilebilen ürün yok"
+                : "Bu vitrinde henüz ürün yok"
             }
             description={
               area
-                ? `${areaLabel(area)} bölgesine hizmet veren çiçekçilerin bu kategoride ürünü yok. Başka bir bölge seçebilir ya da diğer kategorilere bakabilirsin.`
-                : "Çiçekçiler bu kategoriye ürün eklediğinde burada görünecek."
+                ? `${areaLabel(area)} bölgesine hizmet veren çiçekçilerin bu vitrinde ürünü yok. Başka bir bölge seçebilir ya da tüm ürünlere bakabilirsin.`
+                : "Çiçekçiler ürün eklediğinde burada görünecek."
             }
             action={
               area
@@ -161,7 +172,7 @@ export default async function CategoryPage({ params }: { params: Params }) {
           />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
-            {category.products.map((product, index) => (
+            {products.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}

@@ -811,26 +811,84 @@ export const ADMIN = {
 };
 
 /* ------------------------------ Hediye notları ---------------------------- */
-/* Demo'nun duygusal ağırlığı bu metinlerde — her rol aynı notu görecek. */
+/*
+ * Demo'nun duygusal ağırlığı bu metinlerde — her rol aynı notu görecek.
+ *
+ * Not, ürünün kategorisine göre seçilir (`fits`): başsağlığı notu çelenkte
+ * durur, bir doğum günü buketinin altında değil. Kategorisine uyan not
+ * bulunamazsa sipariş notsuz kalır — yanlış notla çıkmasındansa boş kalsın.
+ */
 
-export const GIFT_NOTES = [
-  "İyi ki varsın. Nice mutlu senelere, sevgiyle.",
-  "Hoş geldin minik prenses. Anne babana da kolay gelsin!",
-  "Doğum günün kutlu olsun canım. Bu yıl her şey gönlünce olsun.",
-  "Anneler günün kutlu olsun anneciğim. Ellerinden öperim.",
-  "Yeni işinde başarılar dilerim. Hep yanındayım, biliyorsun.",
-  "Başın sağ olsun. Acını yürekten paylaşıyoruz.",
-  "Tebrikler! Bu mutluluğu hak ettiniz. Sağlıklı, huzurlu bir ömür dileriz.",
-  "Seni özledim. Bir kahve içmeye ne dersin?",
-  "Hayırlı olsun, işleriniz gönlünüzce olsun. Komşunuz Ahmet Bey ailesi.",
-  "Geçmiş olsun. Bir an önce iyileşmen dileğiyle.",
-  "Yıl dönümümüz kutlu olsun. Seninle geçen on yıl bir gün gibi geldi.",
-  "Sınavını kutlarım, gurur duyuyorum seninle.",
-  "Kusura bakma, bugün gelemedim. Sen benim için hep özelsin.",
-  "Nikahınız hayırlı olsun. Bir yastıkta kocayın.",
-  "Emekliliğin kutlu olsun. Bundan sonrası tamamen senin.",
-  "Teşekkür ederim. Bu proje sensiz bitmezdi.",
-] as const;
+export const GIFT_NOTES: { text: string; fits: string[] }[] = [
+  {
+    text: "İyi ki varsın. Nice mutlu senelere, sevgiyle.",
+    fits: ["dogum-gunu", "buketler", "guller", "kutuda-cicek", "hediye-setleri"],
+  },
+  {
+    text: "Hoş geldin minik prenses. Anne babana da kolay gelsin!",
+    fits: ["yeni-bebek"],
+  },
+  {
+    text: "Bebeğiniz sağlıklı, uykularınız uzun olsun. Hoş geldin küçük dostumuz.",
+    fits: ["yeni-bebek", "teraryum"],
+  },
+  {
+    text: "Doğum günün kutlu olsun canım. Bu yıl her şey gönlünce olsun.",
+    fits: ["dogum-gunu", "buketler", "kutuda-cicek", "hediye-setleri"],
+  },
+  {
+    text: "Anneler günün kutlu olsun anneciğim. Ellerinden öperim.",
+    fits: ["buketler", "guller", "orkideler", "saksi-cicekleri", "kutuda-cicek"],
+  },
+  {
+    text: "Yeni işinde başarılar dilerim. Hep yanındayım, biliyorsun.",
+    fits: ["orkideler", "saksi-cicekleri", "hediye-setleri", "teraryum"],
+  },
+  {
+    text: "Başın sağ olsun. Acını yürekten paylaşıyoruz.",
+    fits: ["celenk"],
+  },
+  {
+    text: "Tebrikler! Bu mutluluğu hak ettiniz. Sağlıklı, huzurlu bir ömür dileriz.",
+    fits: ["guller", "orkideler", "buketler"],
+  },
+  {
+    text: "Seni özledim. Bir kahve içmeye ne dersin?",
+    fits: ["buketler", "teraryum", "saksi-cicekleri", "kutuda-cicek"],
+  },
+  {
+    text: "Hayırlı olsun, işleriniz gönlünüzce olsun. Komşunuz Ahmet Bey ailesi.",
+    fits: ["celenk", "orkideler"],
+  },
+  {
+    text: "Geçmiş olsun. Bir an önce iyileşmen dileğiyle.",
+    fits: ["buketler", "saksi-cicekleri", "orkideler", "teraryum"],
+  },
+  {
+    text: "Yıl dönümümüz kutlu olsun. Seninle geçen on yıl bir gün gibi geldi.",
+    fits: ["guller", "buketler", "kutuda-cicek"],
+  },
+  {
+    text: "Sınavını kutlarım, gurur duyuyorum seninle.",
+    fits: ["buketler", "kutuda-cicek", "hediye-setleri"],
+  },
+  {
+    text: "Kusura bakma, bugün gelemedim. Sen benim için hep özelsin.",
+    fits: ["guller", "buketler", "kutuda-cicek"],
+  },
+  {
+    text: "Nikahınız hayırlı olsun. Bir yastıkta kocayın.",
+    fits: ["guller", "orkideler", "buketler"],
+  },
+  {
+    text: "Emekliliğin kutlu olsun. Bundan sonrası tamamen senin.",
+    fits: ["orkideler", "saksi-cicekleri", "hediye-setleri", "teraryum"],
+  },
+  {
+    text: "Teşekkür ederim. Bu proje sensiz bitmezdi.",
+    fits: ["teraryum", "hediye-setleri", "orkideler", "buketler"],
+  },
+];
 
 /* --------------------------- Kurumsal içerik ------------------------------ */
 
