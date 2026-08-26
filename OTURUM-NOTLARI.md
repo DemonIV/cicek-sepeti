@@ -783,3 +783,51 @@ tik). Pencere kapalıyken ilerleme çubuğu **hiç çizilmiyor**: dolu bir çubu
 bandı) tek commit'te gitti. Push öncesi `tsc --noEmit` ve `npm run build`
 koşuldu: temiz, **41 rota** (`/vitrin/[slug]` altı yolla SSG). Render `main`'den
 otomatik deploy ediyor.
+
+---
+
+## 26 Ağustos 2026 — mono yüzü değişti (IBM Plex Mono)
+
+Müşteri: *"projedeki mono yazı tiplerini de değiştirelim."*
+
+**JetBrains Mono → IBM Plex Mono.** Seçim gerekçesi: mono'nun bu projedeki
+baskın işi kod değil, 9–11 px **büyük harfli mikro etiket** (`.eyebrow`,
+`.gift-note-label`, ürün kartındaki satıcı satırı, `PanelShell`); ikinci işi
+sipariş numarası gibi tabular veri. JetBrains bir kod yüzü ve o boyda IDE
+havası bırakıyordu. Plex hümanist ve küçük puntoda açık.
+
+- **Değişim iki dosyada bitti:** `layout.tsx` (next/font) ve `globals.css`
+  satır 23'teki `--font-mono` token'ı. **60 kullanımın hiçbiri elle
+  değişmedi** — hepsi zaten token'dan besleniyor. Mono'yu bir daha
+  değiştirmek istersen yine yalnızca bu iki yere dokun.
+- **Ağırlıklar tek tek yükleniyor** (`400/500/600/700`): Plex Mono değişken
+  eksen taşımıyor ve 60 kullanımın **27'si semibold/bold**. Bu yüzden en fazla
+  500'e çıkan yüzler (DM Mono gibi) elendi — faux bold çıkarırlardı.
+
+### Kapatılan gerçek hata — `latin-ext`
+
+Mono tek başına `subsets: ["latin"]` yüklüyordu, diğer üç yüz
+`["latin", "latin-ext"]` yüklerken. **Türkçe glifler (ğ, ş, İ) latin
+altkümesinde yok** — sistem monospace'ine düşüyorlardı, yani "SİPARİŞ NO"
+gibi büyük harfli etiketler karışık yüzle çiziliyordu. Font değişmeseydi de
+duran bir kusurdu. Yeni bir next/font eklerken `latin-ext` yazmayı unutma.
+
+> Doğrulama yöntemi kayda değer: tarayıcıda canvas ile `"ŞİĞ"` ve `"SIG"`
+> ölçüldü, ikisi de **72 px** geldi — monospace'te tüm ilerlemeler eşit
+> olduğundan bu, Türkçe glifin yüzün kendisinden geldiğini kanıtlar.
+> Fallback'e düşseydi sistem monosunun **65,98 px**'ine kayardı.
+> `document.fonts.check()` bu iş için güvenilmez: kullanılmayan kesimler
+> yüklenmediği için `false` döndürüyor.
+
+### Doküman düzeltmesi
+
+README'nin tipografi satırı gövde yüzü için hâlâ **Manrope** diyordu; oysa
+25 Ağustos'ta **Poppins** olmuştu. Aynı cümle düzeltilirken o da güncellendi.
+Bugünkü hâl: başlık **Outfit**, gövde **Poppins**, veri/etiket **IBM Plex
+Mono**, hediye notu **Bodoni Moda** italik.
+
+### Yayın kaydı
+
+26 Ağustos'ta `main`'e push edildi: **`dd99cc3`** (4 dosya, +22/−7).
+`tsc --noEmit` ve `npm run build` temiz. Render `main`'den otomatik deploy
+ediyor.
