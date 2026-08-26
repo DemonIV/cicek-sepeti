@@ -861,3 +861,7 @@ sunucusundan) tanımlı. Yani ciceksepeti **tüm arayüzünü Nunito ile diziyor
 > yapılmış ama **commit edilmemişti**. Render `main`'den deploy ettiği için
 > yayındaki site bir süre eski yüzü (Plex Mono) göstermeye devam etti.
 > Yüz değişikliği yaptıysan push etmeden "oldu" deme.
+
+**Yayın kaydı:** 26 Ağustos 2026'da `main`'e push edildi — **`b004cdc`**
+(5 dosya, +62/−16). `tsc --noEmit` temiz. Render `main`'den otomatik deploy
+ediyor.
