@@ -20,7 +20,9 @@
   --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   /* Hediye notunun el yazısı hissi — yalnızca `.gift-note` ailesinde. */
   --font-note: var(--font-bodoni-note), "Didot", "Bodoni MT", Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  /* Veri/etiket yüzü. Ad tarihsel ("mono") ama yüz monospace değil: Nunito.
+     Yalnızca burada ve layout.tsx'te tanımlı — 60 kullanım bu token'dan besleniyor. */
+  --font-mono: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
 
   /* Patlıcan — yapı, panel, metin */
   --color-plum-50: #f9eff3;

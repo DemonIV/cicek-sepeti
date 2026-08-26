@@ -2,7 +2,7 @@
 
 > Bu dosya bir sonraki oturumun kaldığı yerden devam etmesi için yazıldı.
 > Proje brief'i `Claude.md`'de, teslim dokümanı `README.md`'de.
-> **Son güncelleme:** 26 Ağustos 2026 (ilk yazım: 27 Temmuz 2026)
+> **Son güncelleme:** 26 Ağustos 2026 — ikinci tur (ilk yazım: 27 Temmuz 2026)
 
 ---
 
@@ -831,3 +831,33 @@ Mono**, hediye notu **Bodoni Moda** italik.
 26 Ağustos'ta `main`'e push edildi: **`dd99cc3`** (4 dosya, +22/−7).
 `tsc --noEmit` ve `npm run build` temiz. Render `main`'den otomatik deploy
 ediyor.
+
+---
+
+## 26 Ağustos 2026 (ikinci tur) — mono yüzü Nunito'ya çevrildi
+
+Müşteri "ciceksepeti.com'daki yazı tiplerine benzer olsun" dedi ve örnek
+olarak ürün kartındaki **MENEKŞE ÇİÇEK EVİ** satırını gösterdi.
+
+**Tahmin edilmedi, ölçüldü.** ciceksepeti.com'un HTML'i ve `_next/static/css`
+altındaki stil dosyaları indirildi; tek metin yüzü olarak
+`@font-face { font-family: Nunito }` (400 ve 600, next/font ile kendi
+sunucusundan) tanımlı. Yani ciceksepeti **tüm arayüzünü Nunito ile diziyor**.
+
+- `--font-mono` slotu **IBM Plex Mono → Nunito**. Yine yalnızca iki dosya:
+  `layout.tsx` (next/font) + `globals.css` satır 25. 60 kullanımın hiçbiri
+  elle değişmedi. Nunito değişken eksenli (wght 200–1000) olduğu için ağırlık
+  listesi yok — Plex'teki `weight: [...]` satırı kalktı.
+- **Ürün kartındaki satıcı satırı normal yazıma döndü**
+  (`ProductCard.tsx`): 9,5 px BÜYÜK HARF + `tracking-[0.11em]` bir marka adını
+  teknik etiket gibi gösteriyordu. Artık 11 px normal yazım, `text-muted` —
+  ciceksepeti'nin kart düzenindeki gibi. Diğer `.eyebrow` mikro etiketleri
+  büyük harf kaldı; onlar isim değil, başlık.
+- **Hâlâ açık soru:** ciceksepeti başlık ve gövdeyi de Nunito ile diziyor;
+  bizde başlık **Outfit**, gövde **Poppins**. Bunları da Nunito'ya çekmek
+  "Vitrin" kimliğini düzleştirir — müşteri açıkça isterse yapılır.
+
+> **Dikkat:** bu turun ilk yarısı (Nunito'ya geçiş) bir önceki oturumda
+> yapılmış ama **commit edilmemişti**. Render `main`'den deploy ettiği için
+> yayındaki site bir süre eski yüzü (Plex Mono) göstermeye devam etti.
+> Yüz değişikliği yaptıysan push etmeden "oldu" deme.

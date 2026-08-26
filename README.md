@@ -409,7 +409,10 @@ kağıdı, koyu patlıcan moru sargı ve tek bir doygun ahududu aksanı.
 | Olumlu durum (`fern`) | `#3f6b4e` — **yalnızca** teslim edildi |
 
 **Tipografi.** Başlıklarda **Outfit** (geometrik, açık gözlü sans), gövdede
-**Poppins**, veri ve etiketlerde **IBM Plex Mono**.
+**Poppins**, veri ve etiketlerde **Nunito**, hediye notunda **Bodoni Moda**
+italik. Nunito bilinçli bir eşleşme: ciceksepeti.com da tüm arayüzünü Nunito
+ile diziyor (stil dosyasında `font-family: Nunito`, 400/600). Veri/etiket slotu kodda hâlâ "mono" adıyla geçer (`--font-mono`,
+`.mono`, `font-mono`) ama 26 Ağustos 2026'dan beri monospace değildir.
 
 > 21 Ağustos 2026'da müşteri isteğiyle başlık yüzü değişti: önceki **Bodoni
 > Moda** iri puntoda güzel duruyordu ama 16–18 px'te tırnakları dağılıyor,

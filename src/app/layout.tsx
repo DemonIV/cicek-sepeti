@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Poppins, Outfit, IBM_Plex_Mono } from "next/font/google";
+import { Bodoni_Moda, Poppins, Outfit, Nunito } from "next/font/google";
 import "./globals.css";
 import { DemoBar } from "@/components/site/DemoBar";
 import { SetupNotice } from "@/components/site/SetupNotice";
@@ -43,22 +43,29 @@ const sans = Poppins({
 });
 
 /**
- * Veri ve etiket yüzü: IBM Plex Mono (müşteri isteği, 26 Ağustos 2026).
- * Mono'nun projedeki baskın işi kod değil, 9-11 px büyük harfli mikro etiket
- * (`.eyebrow`, hediye notu etiketi, kartlardaki satıcı satırı); ikinci işi
- * sipariş numarası gibi tabular veri. JetBrains Mono bir kod yüzüydü ve o
- * boyda IDE havası bırakıyordu — Plex hümanist, ılık ve küçük puntoda açık.
+ * Veri ve etiket yüzü: Nunito (müşteri isteği, 26 Ağustos 2026 — ciceksepeti.com
+ * gibi yuvarlak uçlu tek bir sansta buluşan arayüz).
+ *
+ * Seçim tahmin değil: ciceksepeti.com'un stil dosyası okundu, tek metin yüzü
+ * olarak `@font-face { font-family: Nunito }` (400 ve 600, next/font ile kendi
+ * sunucusundan) tanımlıyor. Yani bu slot artık birebir aynı yüz.
+ *
+ * Bu slot tarihsel olarak "mono" adını taşıyor (`--font-mono`, `.mono`,
+ * `font-mono`) ama ARTIK MONOSPACE DEĞİL. Slotun gerçek işi kod değil,
+ * 9–11 px büyük harfli mikro etiket (`.eyebrow`, `.gift-note-label`, ürün
+ * kartındaki satıcı satırı) ve sipariş numarası gibi tabular veri. Plex Mono
+ * bu işi görüyordu ama teknik bir yüzdü; Nunito yuvarlak omuzlarıyla gövdedeki
+ * Poppins'in yanında aynı ailedenmiş gibi durur ve mikro etiketi ısıtır.
  *
  * `latin-ext` şart: Türkçe glifler (ğ, ş, İ, ı, ç) latin altkümesinde yok,
- * eksik bırakılırsa "SİPARİŞ NO" gibi etiketler sistem monospace'ine düşüp
- * karışık yüzle çizilir. Ağırlıklar tek tek yükleniyor (Plex Mono değişken
- * eksen taşımıyor); 27 kullanım semibold/bold olduğu için 600 ve 700 gerekli.
+ * eksik bırakılırsa "SİPARİŞ NO" gibi etiketler sistem yüzüne düşer.
+ * Nunito değişken eksenli (wght 200–1000), o yüzden ağırlık listesi yok —
+ * 60 kullanımın 27'si semibold/bold ve hepsi gerçek ağırlıktan çiziliyor.
  */
-const mono = IBM_Plex_Mono({
+const mono = Nunito({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-plex-mono",
+  variable: "--font-nunito",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {

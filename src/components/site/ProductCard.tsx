@@ -92,7 +92,11 @@ export function ProductCard({
             Bugün teslim
           </p>
         )}
-        <p className="truncate font-mono text-[9.5px] uppercase tracking-[0.11em] text-faint">
+        {/* Satıcı adı ciceksepeti.com'daki gibi normal yazımda: "MENEKŞE
+            ÇİÇEK EVİ" büyük harf + geniş harf aralığıyla teknik bir etiket
+            gibi okunuyordu, oysa bu bir marka adı (müşteri isteği,
+            26 Ağustos 2026). */}
+        <p className="truncate font-mono text-[11px] text-muted">
           {product.seller.storeName} · {product.seller.city}
         </p>
         <h3 className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-plum-950 sm:text-[13px]">
