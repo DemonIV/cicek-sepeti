@@ -545,7 +545,9 @@ bölümünde.** Özet:
   doygun ahududu aksan `#c2154b`. `gold` yalnızca kıtlık/puan, `fern` yalnızca
   olumlu durum — ikisi de süs değil işaret.
 - **Tipografi:** başlıklarda **Bodoni Moda**, gövdede **Manrope**, veride
-  **JetBrains Mono**.
+  **JetBrains Mono**. *(Üçü de sonradan değişti — bugünkü hâli: Outfit /
+  Poppins / IBM Plex Mono. Bodoni hediye notunda kaldı. Bkz. §1a ve
+  26 Ağustos mono turu.)*
 - **İmza form: KEMER.** Üç ölçek — `arch-full`, `arch`, `arch-sm`. Fotoğraf
   taşımayan hiçbir yüzeyde kullanılmaz. (28 Temmuz'da kapsamı daraldı: ürün
   fotoğrafları kare oldu, kemer editoryal yüzeylerde kaldı — bkz. §2.)

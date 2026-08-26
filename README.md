@@ -409,7 +409,7 @@ kağıdı, koyu patlıcan moru sargı ve tek bir doygun ahududu aksanı.
 | Olumlu durum (`fern`) | `#3f6b4e` — **yalnızca** teslim edildi |
 
 **Tipografi.** Başlıklarda **Outfit** (geometrik, açık gözlü sans), gövdede
-**Manrope**, veri ve etiketlerde **JetBrains Mono**.
+**Poppins**, veri ve etiketlerde **IBM Plex Mono**.
 
 > 21 Ağustos 2026'da müşteri isteğiyle başlık yüzü değişti: önceki **Bodoni
 > Moda** iri puntoda güzel duruyordu ama 16–18 px'te tırnakları dağılıyor,

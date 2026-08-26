@@ -20,7 +20,7 @@
   --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   /* Hediye notunun el yazısı hissi — yalnızca `.gift-note` ailesinde. */
   --font-note: var(--font-bodoni-note), "Didot", "Bodoni MT", Georgia, serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
 
   /* Patlıcan — yapı, panel, metin */
   --color-plum-50: #f9eff3;

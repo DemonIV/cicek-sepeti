@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Poppins, Outfit, JetBrains_Mono } from "next/font/google";
+import { Bodoni_Moda, Poppins, Outfit, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { DemoBar } from "@/components/site/DemoBar";
 import { SetupNotice } from "@/components/site/SetupNotice";
@@ -42,10 +42,23 @@ const sans = Poppins({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
+/**
+ * Veri ve etiket yüzü: IBM Plex Mono (müşteri isteği, 26 Ağustos 2026).
+ * Mono'nun projedeki baskın işi kod değil, 9-11 px büyük harfli mikro etiket
+ * (`.eyebrow`, hediye notu etiketi, kartlardaki satıcı satırı); ikinci işi
+ * sipariş numarası gibi tabular veri. JetBrains Mono bir kod yüzüydü ve o
+ * boyda IDE havası bırakıyordu — Plex hümanist, ılık ve küçük puntoda açık.
+ *
+ * `latin-ext` şart: Türkçe glifler (ğ, ş, İ, ı, ç) latin altkümesinde yok,
+ * eksik bırakılırsa "SİPARİŞ NO" gibi etiketler sistem monospace'ine düşüp
+ * karışık yüzle çizilir. Ağırlıklar tek tek yükleniyor (Plex Mono değişken
+ * eksen taşımıyor); 27 kullanım semibold/bold olduğu için 600 ve 700 gerekli.
+ */
+const mono = IBM_Plex_Mono({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-plex-mono",
   display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
